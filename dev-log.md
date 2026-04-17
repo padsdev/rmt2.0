@@ -252,50 +252,6 @@ Criar estrutura inicial do serviço Python
 
 ---
 
-# 8. Impacto para o TCC
-
-Este desenvolvimento contribui diretamente para:
-
-## Capítulo 3
-
-* Arquitetura do sistema
-* Pipeline de IA
-* Estratégia de integração
-
-## Capítulo 4
-
-* Análise de decisões
-* Problemas enfrentados
-* Avaliação comparativa
-
----
-
-# ➕ 9. Iterações Futuras
-
-## Template para novas entradas
-
-### Iteração X — [Nome do Milestone]
-
-**Objetivo:**
-...
-
-**Alterações realizadas:**
-...
-
-**Problemas encontrados:**
-...
-
-**Soluções aplicadas:**
-...
-
-**Riscos residuais:**
-...
-
-**Impacto arquitetural:**
-...
-
----
-
 ### Iteração M2 — Revisão Arquitetural do Milestone 2
 
 **Objetivo:**
@@ -347,7 +303,7 @@ Riscos residuais:
 
 ---
 
-### Iteração — M3 Shadow Mode no Fluxo Real
+# 8. Iteração — M3 Shadow Mode no Fluxo Real
 
 **Objetivo:**  
 Executar o módulo de IA dentro do fluxo real da RMT em modo de observação, sem alterar a decisão heurística nem o resultado final da ferramenta.
@@ -378,6 +334,98 @@ Executar o módulo de IA dentro do fluxo real da RMT em modo de observação, se
 - Consolidação do `ProjectAiAnalysis` como artefato de execução real.
 - Preparação da trilha experimental para comparação entre heurística e IA.
 - Preservação do desacoplamento entre observação inteligente e aplicação determinística da refatoração.
+
+---
+
+# 9. Iteração — M4 Trilha Experimental e Exportação Shadow
+
+**Objetivo:**  
+Consolidar a coleta experimental do shadow mode por meio de uma trilha estruturada de exportação, preservando o comportamento funcional da RMT.
+
+**Alterações realizadas:**  
+- Captura do `ProjectAiAnalysis` ao final da execução real de `ProcessRefactorCandidate`.
+- Introdução de estruturas experimentais para observação heurística e composição do registro comparativo.
+- Criação do `ShadowExperimentRecord` como unidade estável de comparação entre heurística e IA.
+- Implementação de exportação em JSONL por meio de `JsonlShadowExperimentExporter`.
+- Inclusão de configuração para habilitar/desabilitar a exportação sem alterar o fluxo principal.
+
+**Problemas encontrados:**  
+- Necessidade de combinar a observação heurística com a análise da IA sem acoplar ao domínio `Project`.
+- Necessidade de produzir um formato estável, reproduzível e adequado a benchmark.
+- Necessidade de distinguir observações válidas de diferentes tipos de falha da IA.
+
+**Soluções aplicadas:**  
+- Uso do artefato de domínio já existente (`ProjectAiAnalysis`) como base da exportação.
+- Projeção paralela da heurística por meio de `ProjectHeuristicObservationsFactory`.
+- Geração de um registro por candidato contendo identificadores, previsão da IA, referência heurística e falhas associadas.
+- Exportação em JSONL, favorecendo processamento incremental e reprodutibilidade experimental.
+
+**Formato exportado:**  
+Cada linha do JSONL representa um candidato e contém, no mínimo:
+- `project_id`
+- `candidate_id`
+- `entity_id`
+- `trace_id`
+- `observation_status`
+- `heuristic_pattern`
+- `heuristic_reference`
+- `predicted_labels`
+- `confidence`
+- `failure_type`
+- `failure_reason`
+
+**Riscos residuais:**  
+- A trilha experimental ainda depende de arquivo local simples, sem rotação ou versionamento de schema.
+- Ainda não existe política operacional para transformar falhas em decisão segura.
+- O campo `confidence` ainda depende da interpretação atual do serviço Python e precisa de calibração experimental.
+- O benchmark ainda exige pós-processamento externo para cálculo das métricas agregadas.
+
+**Impacto arquitetural:**  
+- Consolidação da trilha experimental do shadow mode.
+- Preparação direta para cálculo de métricas comparativas entre heurística e IA.
+- Fortalecimento da reprodutibilidade do experimento sem comprometer o domínio principal da RMT.
+
+# 10. Impacto para o TCC
+
+Este desenvolvimento contribui diretamente para:
+
+## Capítulo 3
+
+* Arquitetura do sistema
+* Pipeline de IA
+* Estratégia de integração
+
+## Capítulo 4
+
+* Análise de decisões
+* Problemas enfrentados
+* Avaliação comparativa
+
+---
+
+# 11. Iterações Futuras
+
+## Template para novas entradas
+
+### Iteração X — [Nome do Milestone]
+
+**Objetivo:**
+...
+
+**Alterações realizadas:**
+...
+
+**Problemas encontrados:**
+...
+
+**Soluções aplicadas:**
+...
+
+**Riscos residuais:**
+...
+
+**Impacto arquitetural:**
+...
 
 ---
 
