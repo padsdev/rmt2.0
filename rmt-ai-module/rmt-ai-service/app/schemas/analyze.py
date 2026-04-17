@@ -1,12 +1,8 @@
-from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
-
-PatternLabel = Literal["TEMPLATE_METHOD", "STRATEGY", "FACTORY_METHOD"]
-EntityType = Literal["class", "method", "hierarchy", "creator"]
-Language = Literal["java"]
+from app.domain import EntityType, Language, PatternLabel
 
 
 class MetricsContext(BaseModel):
@@ -76,7 +72,8 @@ class AnalyzeResponse(BaseModel):
     entity_id: str
     model: ModelInfo
     predictions: list[Prediction]
-    top_prediction: PatternLabel
+    predicted_labels: list[PatternLabel] = Field(default_factory=list)
+    top_prediction: PatternLabel | None = None
     confidence: float = Field(ge=0.0, le=1.0)
     explanation: str
     evidence: Evidence

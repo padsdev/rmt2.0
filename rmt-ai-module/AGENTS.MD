@@ -6,7 +6,7 @@ usando GraphCodeBERT como classificador e preservando a aplicação determiníst
 da refatoração no núcleo da RMT.
 
 ## Fonte de verdade
-- Leia primeiro `docs/architecture/spec.md`.
+- Leia primeiro `docs/architecture/SPEC_RMT_GraphCodeBERT_Modulo_IA.md`.
 - Se houver conflito entre código existente e spec, prefira preservar compatibilidade com a RMT e registre a divergência.
 
 ## Restrições

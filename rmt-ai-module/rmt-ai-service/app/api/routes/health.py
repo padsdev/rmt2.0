@@ -1,15 +1,18 @@
-from fastapi import APIRouter
+from typing import Annotated
 
-from app.core.config import settings
+from fastapi import APIRouter, Depends
+
+from app.api.dependencies import get_runtime
+from app.core.runtime import ServiceRuntime
 from app.schemas.health import HealthResponse
 
 router = APIRouter(tags=["health"])
 
 
 @router.get("/health", response_model=HealthResponse)
-def health() -> HealthResponse:
+async def health(runtime: Annotated[ServiceRuntime, Depends(get_runtime)]) -> HealthResponse:
     return HealthResponse(
-        status="ok",
-        model_loaded=settings.model_loaded,
-        model_name=settings.model_name,
+        status=runtime.status,
+        model_loaded=runtime.model_loaded,
+        model_name=runtime.model_name,
     )
