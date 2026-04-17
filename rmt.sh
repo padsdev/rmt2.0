@@ -49,6 +49,31 @@ infra_full() {
   tflocal -chdir="$SCRIPT_DIR/infra" apply -auto-approve
 }
 
+verify_full_stack() {
+  local compose_file="$SCRIPT_DIR/infra/local/docker-compose-full.yml"
+
+  echo "==> Verifying application containers..."
+  sleep 5
+
+  local exited_services
+  exited_services="$(docker compose -f "$compose_file" ps --status exited --services || true)"
+
+  if [[ -n "$exited_services" ]]; then
+    echo "One or more services exited during startup:"
+    echo "$exited_services"
+    echo ""
+    echo "Recent logs:"
+    docker compose -f "$compose_file" logs --tail=100 $exited_services || true
+    return 1
+  fi
+
+  if ! docker compose -f "$compose_file" ps --status running --services | grep -qx "intermediary"; then
+    echo "The intermediary service is not running, so the UI is not available on http://localhost:8080"
+    docker compose -f "$compose_file" ps
+    return 1
+  fi
+}
+
 case "${1:-all}" in
   build)
     build
@@ -72,6 +97,7 @@ case "${1:-all}" in
     build
     images
     infra_full
+    verify_full_stack
     echo ""
     echo "Done. UI available at http://localhost:8080"
     ;;
