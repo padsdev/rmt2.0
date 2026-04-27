@@ -1,5 +1,7 @@
 package br.com.magnus.detectionandrefactoring.ai.configuration;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -12,6 +14,13 @@ import java.net.http.HttpClient;
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties(RmtAiProperties.class)
 public class RmtAiHttpClientConfiguration {
+
+    @Bean
+    ObjectMapper rmtAiObjectMapper() {
+        return JsonMapper.builder()
+                .findAndAddModules()
+                .build();
+    }
 
     @Bean
     @ConditionalOnProperty(prefix = "rmt.ai", name = "enabled", havingValue = "true")

@@ -31,6 +31,7 @@ images() {
   docker build -t magnus/detection "$SCRIPT_DIR/detection-and-refactoring"
   docker build -t magnus/manager   "$SCRIPT_DIR/project-sync-bff"
   docker build -t magnus/metrics   "$SCRIPT_DIR/metrics-calculator"
+  docker build -t magnus/rmt-ai-service "$SCRIPT_DIR/rmt-ai-module/rmt-ai-service"
 }
 
 infra() {

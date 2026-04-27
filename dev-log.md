@@ -1,4 +1,4 @@
-# DEV LOG — Módulo de IA para RMT (GraphCodeBERT)
+# Diário de Desenvolvimento — Módulo de IA para RMT (GraphCodeBERT)
 
 ## Objetivo do Documento
 
@@ -77,7 +77,7 @@ A arquitetura foi desenhada para garantir:
 
 **Motivação:**
 
-* Considera fluxo de dados (data flow)
+* Considera fluxo de dados
 * Melhor para compreensão estrutural
 * Adequado para classificação semântica
 
@@ -141,7 +141,7 @@ A arquitetura foi desenhada para garantir:
 
 Os seguintes princípios devem ser preservados durante todo o desenvolvimento:
 
-* Health endpoint nunca deve mentir
+* O endpoint de saúde nunca deve mentir
 * IA não pode aplicar refatoração
 * Semântica multilabel deve ser mantida
 * Labels devem ser centralizados
@@ -165,7 +165,7 @@ Os seguintes princípios devem ser preservados durante todo o desenvolvimento:
 
 ## 5.3 Falta de Pipeline Experimental
 
-* Sem dataset
+* Sem conjunto de dados
 * Sem avaliação comparativa
 * Sem exportação de resultados
 
@@ -190,11 +190,11 @@ Criar estrutura inicial do serviço Python
 
 ## 6.2 Problemas Identificados no M1
 
-### Problema: Health falso
+### Problema: endpoint de saúde incorreto
 
-* Serviço reportava estado saudável sem readiness real
+* Serviço reportava estado saudável sem prontidão real
 
-### Problema: Acoplamento ao stub
+### Problema: Acoplamento à implementação stub
 
 * Lógica fixa e não extensível
 
@@ -210,10 +210,10 @@ Criar estrutura inicial do serviço Python
 
 ## 6.3 Correções Aplicadas no M1
 
-* Introdução de lifecycle real
-* Desacoplamento do stub
+* Introdução de ciclo de vida real
+* Desacoplamento da implementação stub
 * Ajuste para multilabel
-* Uso de TestClient real
+* Uso de cliente de teste real
 * Melhoria na validação de contrato
 
 ---
@@ -222,8 +222,8 @@ Criar estrutura inicial do serviço Python
 
 * Lifecycle ainda simplificado
 * Falta de simulação de falha de startup
-* Campos de evidência ainda stubados
-* Limitações de ambiente (Python 3.14 + TestClient)
+* Campos de evidência ainda simulados por stub
+* Limitações de ambiente (Python 3.14 + cliente de teste)
 
 ---
 
@@ -238,7 +238,7 @@ Criar estrutura inicial do serviço Python
 
 ## 7.2 Riscos Identificados
 
-* Falhas de lifecycle não capturadas
+* Falhas de ciclo de vida não capturadas
 * Client HTTP acoplado
 * Divergência de contrato
 
@@ -246,7 +246,7 @@ Criar estrutura inicial do serviço Python
 
 ## 7.3 Estratégia de Mitigação
 
-* Feature flag (IA desligada por default)
+* Chave de funcionalidade (IA desligada por padrão)
 * Fallback completo para heurística
 * Validação forte de contrato
 
@@ -263,21 +263,21 @@ Foi adicionada apenas uma nova entrada de revisão ao `dev-log.md`. Nenhuma alte
 **Problemas encontrados:**
 * A interface `ProjectAiAnalyzer` retorna `void`, e o resultado da IA é descartado após log, o que torna a transição para o M3 mais invasiva do que o desejável.
 * `AiAnalyzeRequestFactory` está acoplada às classes concretas das heurísticas atuais (`WeiEtAl2014*` e `ZafeirisEtAl2016Candidate`), em vez de depender de uma representação intermediária mais estável.
-* O boundary Java espelha diretamente detalhes do contrato Python (`model`, `evidence`, `top_prediction`), expondo o lado Java a mudanças do scaffold do serviço de IA.
-* O fallback atual trata indisponibilidade, erro HTTP, corpo vazio e erro de serialização da mesma forma (`Optional.empty()`), o que é seguro para continuidade, mas fraco para observabilidade e para detectar drift de contrato no M3.
-* Ainda existe duplicação cross-stack de labels suportados: o lado Java define `AiPatternLabel` localmente, o que preserva consistência interna do módulo, mas não a centralização do sistema como um todo.
+* A fronteira Java espelha diretamente detalhes do contrato Python (`model`, `evidence`, `top_prediction`), expondo o lado Java a mudanças da estrutura inicial do serviço de IA.
+* O fallback atual trata indisponibilidade, erro HTTP, corpo vazio e erro de serialização da mesma forma (`Optional.empty()`), o que é seguro para continuidade, mas fraco para observabilidade e para detectar desvio de contrato no M3.
+* Ainda existe duplicação entre camadas dos rótulos suportados: o lado Java define `AiPatternLabel` localmente, o que preserva consistência interna do módulo, mas não a centralização do sistema como um todo.
 
 **Soluções aplicadas:**
 Nenhuma solução foi aplicada nesta revisão, por decisão de escopo. Os problemas foram apenas registrados para orientar a revisão final do M2 e preparar a entrada no M3.
 
 **Riscos residuais:**
-* O M3 tende a exigir mudança de assinatura ou criação de novo boundary para transportar resultado estruturado da IA.
-* Há risco de drift silencioso entre o contrato Python e os DTOs Java, especialmente em campos acessórios do scaffold.
+* O M3 tende a exigir mudança de assinatura ou criação de nova fronteira para transportar resultado estruturado da IA.
+* Há risco de desvio silencioso entre o contrato Python e os DTOs Java, especialmente em campos acessórios da estrutura inicial.
 * O fallback pode mascarar regressões de integração se erros de contrato forem tratados como simples indisponibilidade.
 * A adição de novos detectores ou novas fontes de candidatos tende a exigir mudanças no `AiAnalyzeRequestFactory`, ampliando o acoplamento arquitetural.
 
 **Impacto arquitetural:**
-O M2 cumpriu o objetivo de introduzir a costura de integração sem alterar a decisão da RMT, mas ainda não estabeleceu uma fronteira suficientemente estável para o M3. A principal tensão arquitetural está entre uma integração mínima, segura para shadow mode, e a ausência de um resultado de domínio desacoplado para suportar evolução futura sem retrabalho.
+O M2 cumpriu o objetivo de introduzir a costura de integração sem alterar a decisão da RMT, mas ainda não estabeleceu uma fronteira suficientemente estável para o M3. A principal tensão arquitetural está entre uma integração mínima, segura para o modo shadow, e a ausência de um resultado de domínio desacoplado para suportar evolução futura sem retrabalho.
 
 ---
 
@@ -299,7 +299,7 @@ Impacto:
 
 Riscos residuais:
 - resultado ainda não integrado ao fluxo
-- labels ainda não sincronizados cross-stack
+- rótulos ainda não sincronizados entre camadas
 
 ---
 
@@ -340,7 +340,7 @@ Executar o módulo de IA dentro do fluxo real da RMT em modo de observação, se
 # 9. Iteração — M4 Trilha Experimental e Exportação Shadow
 
 **Objetivo:**  
-Consolidar a coleta experimental do shadow mode por meio de uma trilha estruturada de exportação, preservando o comportamento funcional da RMT.
+Consolidar a coleta experimental do modo shadow por meio de uma trilha estruturada de exportação, preservando o comportamento funcional da RMT.
 
 **Alterações realizadas:**  
 - Captura do `ProjectAiAnalysis` ao final da execução real de `ProcessRefactorCandidate`.
@@ -375,17 +375,123 @@ Cada linha do JSONL representa um candidato e contém, no mínimo:
 - `failure_reason`
 
 **Riscos residuais:**  
-- A trilha experimental ainda depende de arquivo local simples, sem rotação ou versionamento de schema.
+- A trilha experimental ainda depende de arquivo local simples, sem rotação ou versionamento de esquema.
 - Ainda não existe política operacional para transformar falhas em decisão segura.
 - O campo `confidence` ainda depende da interpretação atual do serviço Python e precisa de calibração experimental.
 - O benchmark ainda exige pós-processamento externo para cálculo das métricas agregadas.
 
 **Impacto arquitetural:**  
-- Consolidação da trilha experimental do shadow mode.
+- Consolidação da trilha experimental do modo shadow.
 - Preparação direta para cálculo de métricas comparativas entre heurística e IA.
 - Fortalecimento da reprodutibilidade do experimento sem comprometer o domínio principal da RMT.
 
-# 10. Impacto para o TCC
+# 10. Iteração — M5 Pipeline de Avaliação Experimental
+
+**Objetivo:**  
+Construir um pipeline executado fora do fluxo operacional para avaliação dos dados coletados em modo shadow.
+
+**Alterações realizadas:**  
+- Implementação de leitura de arquivos JSONL exportados
+- Cálculo de métricas de comparação heurística × IA
+- Geração de relatórios estruturados (JSON e CSV)
+- Separação entre observações válidas, falhas e inconsistências de esquema
+
+**Métricas implementadas:**  
+- Taxa de concordância
+- Precisão
+- Revocação
+- F1
+- Análise de discordância:
+  - IA detecta e heurística não
+  - heurística detecta e IA não
+
+**Problemas encontrados:**  
+- Necessidade de alinhar métricas técnicas com a definição metodológica do TCC
+- Diferença entre verdade de referência real e linha de base heurística
+
+**Soluções aplicadas:**  
+- Uso da heurística como verdade de referência operacional
+- Inclusão explícita de métricas de concordância e discordância
+- Separação de falhas e observações válidas
+
+**Riscos residuais:**  
+- Avaliação ainda baseada em linha de base heurística, não em validação manual
+- Falta de calibração de thresholds de confiança
+- Ausência de verdade de referência absoluta
+
+**Impacto arquitetural:**  
+- Consolidação do pipeline experimental
+- Preparação direta para análise quantitativa no Capítulo 4
+- Integração entre implementação e metodologia do TCC
+
+# 11. Iteração — M5.1 Alinhamento com o Protocolo de Avaliação do TCC
+
+**Objetivo:**  
+Alinhar o pipeline de avaliação com a metodologia formal definida no TCC.
+
+**Ajustes realizados:**  
+- Promoção da taxa de concordância a métrica de primeira classe.
+- Introdução de classificação explícita dos casos discordantes:
+  - Caso 1: a IA detecta padrões não presentes na linha de base heurística.
+  - Caso 2: a IA deixa de detectar padrões presentes na linha de base heurística.
+- Separação das observações em:
+  - observações válidas
+  - observações discordantes
+  - falhas
+  - inconsistências de esquema
+- Inclusão de saídas CSV dedicadas para inspeção analítica dos casos discordantes.
+
+**Alinhamento metodológico:**  
+- A saída da heurística é tratada como verdade de referência operacional.
+- Precisão, revocação e F1 são calculadas em relação a essa linha de base.
+- Apenas observações válidas entram no cálculo das métricas.
+- Foi adicionada uma ressalva explícita de que a avaliação não representa verdade de referência absoluta.
+
+**Limitações remanescentes:**  
+- Conjunto de dados restrito a candidatos gerados pela heurística.
+- Ausência de verdade de referência validada manualmente.
+- Previsões multilabel da IA comparadas com linha de base heurística de rótulo único.
+- A validação humana dos casos discordantes permanece externa ao pipeline.
+
+**Impacto:**  
+- Alinhamento completo entre implementação e metodologia de pesquisa.
+- Viabilização de análise experimental defensável no Capítulo 4.
+- Estabelecimento de fronteira clara entre resultados de engenharia e afirmações científicas.
+
+# 12. Iteração — M5.2 Observação Operacional sobre Execução Docker
+
+**Objetivo:**  
+Registrar o ajuste arquitetural necessário para executar o modo shadow com exportação reprodutível no ambiente Docker.
+
+**Alterações realizadas:**  
+- Inclusão do serviço `ai-service` como contêiner dedicado para o módulo Python da IA.
+- Configuração do serviço `detection` para consumir a API da IA via `RMT_AI_BASE_URL=http://ai-service:8000`.
+- Ajuste do caminho de exportação shadow para um diretório montado no host.
+- Atualização do script `rmt.sh` para construir também a imagem `magnus/rmt-ai-service` no fluxo `all`.
+
+**Problemas encontrados:**  
+- Com `RMT_AI_ENABLED=true` e sem um contêiner separado para a IA, o serviço `detection` tentava acessar `http://127.0.0.1:8000`, que dentro do contêiner aponta para ele mesmo.
+- Esse cenário gerava observações `UNAVAILABLE` com `SERVICE_UNAVAILABLE/TRANSPORT_ERROR`, inviabilizando métricas comparativas entre heurística e IA.
+- Quando o arquivo era gerado dentro do contêiner sem volume compartilhado, o pipeline M5 não conseguia encontrá-lo automaticamente no host.
+- Ao ativar o caminho da IA no `detection`, foi necessário explicitar um bean `ObjectMapper` para satisfazer as dependências do cliente HTTP e do exportador.
+
+**Soluções aplicadas:**  
+- Tratamento do módulo de IA como microserviço separado, em conformidade com a arquitetura HTTP/JSON prevista no TCC.
+- Uso do nome do serviço do Docker Compose como endpoint interno entre `detection` e `ai-service`.
+- Montagem do diretório `detection-and-refactoring/target` no contêiner `detection`, permitindo que o JSONL seja escrito diretamente no host.
+- Inclusão explícita de `ObjectMapper` na configuração da integração de IA.
+
+**Riscos residuais:**  
+- Enquanto o `rmt-ai-service` permanecer em modo simulado, os resultados experimentais refletem integração funcional, mas não inferência final com GraphCodeBERT.
+- Falhas de rede entre `detection` e `ai-service` continuam sendo possíveis e devem ser monitoradas pelos eventos `ai_shadow_failure`.
+- A execução em Docker exige disciplina operacional para evitar mistura entre os modos `dev` e `all`, o que pode produzir estados inconsistentes de rede.
+
+**Impacto arquitetural:**  
+- Alinhamento entre a implementação em Docker e a arquitetura de microserviços originalmente definida.
+- Viabilização do modo shadow ponta a ponta com geração automática do arquivo de exportação no host.
+- Simplificação do uso do pipeline M5, tornando o script `rmt-shadow-eval-default.sh` compatível com a execução completa em contêineres.
+
+# 13. Impacto para o TCC
 
 Este desenvolvimento contribui diretamente para:
 
@@ -403,9 +509,9 @@ Este desenvolvimento contribui diretamente para:
 
 ---
 
-# 11. Iterações Futuras
+# 14. Iterações Futuras
 
-## Template para novas entradas
+## Modelo para novas entradas
 
 ### Iteração X — [Nome do Milestone]
 
