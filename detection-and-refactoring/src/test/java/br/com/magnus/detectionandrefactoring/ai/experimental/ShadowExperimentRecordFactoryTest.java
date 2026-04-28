@@ -30,10 +30,14 @@ class ShadowExperimentRecordFactoryTest {
                                         List.of(new AiAnalysis.Prediction(DesignPattern.STRATEGY, 0.87, true)),
                                         List.of(DesignPattern.STRATEGY),
                                         0.87,
-                                        "shadow"
-                                ))
+                                        "shadow",
+                                        "per-pattern-threshold",
+                                        new AiAnalysis.AppliedThresholds(0.10, 0.55, 0.20),
+                                        new AiAnalysis.Timing(7L)
+                                )),
+                                9L
                         )
-                )),
+                ), 42L, 9L, 9.0, 1),
                 new ProjectHeuristicObservations("project-17", List.of(
                         new HeuristicCandidateObservation(
                                 "candidate-1",
@@ -51,6 +55,13 @@ class ShadowExperimentRecordFactoryTest {
         assertEquals(DesignPattern.STRATEGY, record.heuristicPattern());
         assertEquals(List.of(DesignPattern.STRATEGY), record.predictedLabels());
         assertEquals(0.87, record.confidence());
+        assertEquals("per-pattern-threshold", record.experimentProfile());
+        assertEquals(0.10, record.templateMethodThreshold());
+        assertEquals(0.55, record.strategyThreshold());
+        assertEquals(0.20, record.factoryMethodThreshold());
+        assertEquals(9L, record.aiAnalysisTimeMs());
+        assertEquals(42L, record.projectProcessingTimeMs());
+        assertEquals(9.0, record.averageCandidateAnalysisTimeMs());
         assertEquals(null, record.failureType());
     }
 
@@ -66,9 +77,10 @@ class ShadowExperimentRecordFactoryTest {
                                         AiFailure.Type.SERVICE_UNAVAILABLE,
                                         AiFailure.Reason.TIMEOUT,
                                         "timed out"
-                                ))
+                                )),
+                                11L
                         )
-                )),
+                ), 25L, 11L, 11.0, 1),
                 new ProjectHeuristicObservations("project-17", List.of())
         );
         var contractRecords = factory.create(
@@ -81,16 +93,21 @@ class ShadowExperimentRecordFactoryTest {
                                         AiFailure.Type.CONTRACT_ERROR,
                                         AiFailure.Reason.INCOMPATIBLE_CONTRACT,
                                         "missing field"
-                                ))
+                                )),
+                                13L
                         )
-                )),
+                ), 31L, 13L, 13.0, 1),
                 new ProjectHeuristicObservations("project-17", List.of())
         );
 
         assertEquals(ShadowObservationStatus.TIMEOUT, timeoutRecords.getFirst().observationStatus());
+        assertEquals(11L, timeoutRecords.getFirst().aiAnalysisTimeMs());
+        assertEquals(25L, timeoutRecords.getFirst().projectProcessingTimeMs());
         assertEquals("SERVICE_UNAVAILABLE", timeoutRecords.getFirst().failureType());
         assertEquals("TIMEOUT", timeoutRecords.getFirst().failureReason());
         assertEquals(ShadowObservationStatus.CONTRACT_FAILURE, contractRecords.getFirst().observationStatus());
+        assertEquals(13L, contractRecords.getFirst().aiAnalysisTimeMs());
+        assertEquals(31L, contractRecords.getFirst().projectProcessingTimeMs());
         assertEquals("CONTRACT_ERROR", contractRecords.getFirst().failureType());
         assertEquals("INCOMPATIBLE_CONTRACT", contractRecords.getFirst().failureReason());
     }

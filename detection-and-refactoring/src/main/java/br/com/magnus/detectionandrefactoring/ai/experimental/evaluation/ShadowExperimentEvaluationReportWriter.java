@@ -34,14 +34,14 @@ public class ShadowExperimentEvaluationReportWriter {
 
     private String buildOverallCsv(ShadowExperimentEvaluationReport.SliceSummary overall) {
         var rows = new StringBuilder();
-        rows.append("scope,scope_value,total_observation_count,valid_observation_count,discordant_observation_count,failure_observation_count,support,agreement_count,agreement_rate,case_1_ai_detects_heuristic_not_count,case_2_heuristic_detects_ai_not_count,micro_precision,micro_recall,micro_f1,macro_active_pattern_count,macro_precision,macro_recall,macro_f1,count_by_status\n");
+        rows.append("scope,scope_value,total_observation_count,valid_observation_count,discordant_observation_count,failure_observation_count,support,agreement_count,agreement_rate,case_1_ai_detects_heuristic_not_count,case_2_heuristic_detects_ai_not_count,micro_precision,micro_recall,micro_f1,macro_active_pattern_count,macro_precision,macro_recall,macro_f1,count_by_status,experiment_profiles,total_project_processing_time_ms,total_ai_analysis_time_ms,average_candidate_analysis_time_ms,timed_project_count,timed_candidate_count\n");
         rows.append(sliceRow(overall)).append('\n');
         return rows.toString();
     }
 
     private String buildProjectCsv(List<ShadowExperimentEvaluationReport.ProjectSummary> perProject) {
         var rows = new StringBuilder();
-        rows.append("project_id,total_observation_count,valid_observation_count,discordant_observation_count,failure_observation_count,support,agreement_count,agreement_rate,case_1_ai_detects_heuristic_not_count,case_2_heuristic_detects_ai_not_count,micro_precision,micro_recall,micro_f1,macro_active_pattern_count,macro_precision,macro_recall,macro_f1,count_by_status\n");
+        rows.append("project_id,total_observation_count,valid_observation_count,discordant_observation_count,failure_observation_count,support,agreement_count,agreement_rate,case_1_ai_detects_heuristic_not_count,case_2_heuristic_detects_ai_not_count,micro_precision,micro_recall,micro_f1,macro_active_pattern_count,macro_precision,macro_recall,macro_f1,count_by_status,experiment_profiles,total_project_processing_time_ms,total_ai_analysis_time_ms,average_candidate_analysis_time_ms,timed_project_count,timed_candidate_count\n");
         for (var project : perProject) {
             rows.append(projectRow(project.summary())).append('\n');
         }
@@ -94,7 +94,7 @@ public class ShadowExperimentEvaluationReportWriter {
 
     private String buildValidObservationsCsv(List<ShadowExperimentEvaluationReport.ValidObservation> validObservations) {
         var rows = new StringBuilder();
-        rows.append("source_file,line_number,project_id,candidate_id,entity_id,trace_id,heuristic_pattern,predicted_labels,confidence,agreement_with_heuristic,discordant,case_1_ai_detects_heuristic_not,case_2_heuristic_detects_ai_not,case_1_predicted_only_labels\n");
+        rows.append("source_file,line_number,project_id,candidate_id,entity_id,trace_id,heuristic_pattern,predicted_labels,confidence,agreement_with_heuristic,discordant,case_1_ai_detects_heuristic_not,case_2_heuristic_detects_ai_not,case_1_predicted_only_labels,experiment_profile,template_method_threshold,strategy_threshold,factory_method_threshold,ai_analysis_time_ms,project_processing_time_ms,average_candidate_analysis_time_ms\n");
         for (var observation : validObservations) {
             rows.append(csv(observation.sourceFile())).append(',')
                     .append(observation.lineNumber()).append(',')
@@ -109,14 +109,21 @@ public class ShadowExperimentEvaluationReportWriter {
                     .append(observation.discordant()).append(',')
                     .append(observation.case1AiDetectsHeuristicDoesNot()).append(',')
                     .append(observation.case2HeuristicDetectsAiDoesNot()).append(',')
-                    .append(csv(String.join("|", observation.case1PredictedOnlyLabels()))).append('\n');
+                    .append(csv(String.join("|", observation.case1PredictedOnlyLabels()))).append(',')
+                    .append(csv(observation.experimentProfile())).append(',')
+                    .append(nullableDecimal(observation.templateMethodThreshold())).append(',')
+                    .append(nullableDecimal(observation.strategyThreshold())).append(',')
+                    .append(nullableDecimal(observation.factoryMethodThreshold())).append(',')
+                    .append(nullableLong(observation.aiAnalysisTimeMs())).append(',')
+                    .append(nullableLong(observation.projectProcessingTimeMs())).append(',')
+                    .append(nullableDecimal(observation.averageCandidateAnalysisTimeMs())).append('\n');
         }
         return rows.toString();
     }
 
     private String buildDiscordantObservationsCsv(List<ShadowExperimentEvaluationReport.DiscordantObservation> discordantObservations) {
         var rows = new StringBuilder();
-        rows.append("source_file,line_number,project_id,candidate_id,entity_id,trace_id,heuristic_pattern,predicted_labels,confidence,agreement_with_heuristic,case_1_ai_detects_heuristic_not,case_2_heuristic_detects_ai_not,disagreement_cases,case_1_predicted_only_labels\n");
+        rows.append("source_file,line_number,project_id,candidate_id,entity_id,trace_id,heuristic_pattern,predicted_labels,confidence,agreement_with_heuristic,case_1_ai_detects_heuristic_not,case_2_heuristic_detects_ai_not,disagreement_cases,case_1_predicted_only_labels,experiment_profile,template_method_threshold,strategy_threshold,factory_method_threshold,ai_analysis_time_ms,project_processing_time_ms,average_candidate_analysis_time_ms\n");
         for (var observation : discordantObservations) {
             rows.append(csv(observation.sourceFile())).append(',')
                     .append(observation.lineNumber()).append(',')
@@ -131,14 +138,21 @@ public class ShadowExperimentEvaluationReportWriter {
                     .append(observation.case1AiDetectsHeuristicDoesNot()).append(',')
                     .append(observation.case2HeuristicDetectsAiDoesNot()).append(',')
                     .append(csv(String.join("|", observation.disagreementCases()))).append(',')
-                    .append(csv(String.join("|", observation.case1PredictedOnlyLabels()))).append('\n');
+                    .append(csv(String.join("|", observation.case1PredictedOnlyLabels()))).append(',')
+                    .append(csv(observation.experimentProfile())).append(',')
+                    .append(nullableDecimal(observation.templateMethodThreshold())).append(',')
+                    .append(nullableDecimal(observation.strategyThreshold())).append(',')
+                    .append(nullableDecimal(observation.factoryMethodThreshold())).append(',')
+                    .append(nullableLong(observation.aiAnalysisTimeMs())).append(',')
+                    .append(nullableLong(observation.projectProcessingTimeMs())).append(',')
+                    .append(nullableDecimal(observation.averageCandidateAnalysisTimeMs())).append('\n');
         }
         return rows.toString();
     }
 
     private String buildFailuresCsv(List<ShadowExperimentEvaluationReport.FailureObservation> failures) {
         var rows = new StringBuilder();
-        rows.append("source_file,line_number,project_id,candidate_id,entity_id,trace_id,observation_status,heuristic_pattern,failure_type,failure_reason\n");
+        rows.append("source_file,line_number,project_id,candidate_id,entity_id,trace_id,observation_status,heuristic_pattern,experiment_profile,template_method_threshold,strategy_threshold,factory_method_threshold,ai_analysis_time_ms,project_processing_time_ms,average_candidate_analysis_time_ms,failure_type,failure_reason\n");
         for (var failure : failures) {
             rows.append(csv(failure.sourceFile())).append(',')
                     .append(failure.lineNumber()).append(',')
@@ -148,6 +162,13 @@ public class ShadowExperimentEvaluationReportWriter {
                     .append(csv(failure.traceId())).append(',')
                     .append(csv(failure.observationStatus())).append(',')
                     .append(csv(failure.heuristicPattern())).append(',')
+                    .append(csv(failure.experimentProfile())).append(',')
+                    .append(nullableDecimal(failure.templateMethodThreshold())).append(',')
+                    .append(nullableDecimal(failure.strategyThreshold())).append(',')
+                    .append(nullableDecimal(failure.factoryMethodThreshold())).append(',')
+                    .append(nullableLong(failure.aiAnalysisTimeMs())).append(',')
+                    .append(nullableLong(failure.projectProcessingTimeMs())).append(',')
+                    .append(nullableDecimal(failure.averageCandidateAnalysisTimeMs())).append(',')
                     .append(csv(failure.failureType())).append(',')
                     .append(csv(failure.failureReason())).append('\n');
         }
@@ -202,7 +223,19 @@ public class ShadowExperimentEvaluationReportWriter {
                 + ','
                 + decimal(summary.macroMetrics().f1())
                 + ','
-                + csv(formatStatusCounts(summary.countByStatus()));
+                + csv(formatStatusCounts(summary.countByStatus()))
+                + ','
+                + csv(String.join("|", summary.experimentProfiles()))
+                + ','
+                + nullableLong(summary.performance().totalProjectProcessingTimeMs())
+                + ','
+                + nullableLong(summary.performance().totalAiAnalysisTimeMs())
+                + ','
+                + nullableDecimal(summary.performance().averageCandidateAnalysisTimeMs())
+                + ','
+                + summary.performance().timedProjectCount()
+                + ','
+                + summary.performance().timedCandidateCount();
     }
 
     private String projectRow(ShadowExperimentEvaluationReport.SliceSummary summary) {
@@ -240,7 +273,19 @@ public class ShadowExperimentEvaluationReportWriter {
                 + ','
                 + decimal(summary.macroMetrics().f1())
                 + ','
-                + csv(formatStatusCounts(summary.countByStatus()));
+                + csv(formatStatusCounts(summary.countByStatus()))
+                + ','
+                + csv(String.join("|", summary.experimentProfiles()))
+                + ','
+                + nullableLong(summary.performance().totalProjectProcessingTimeMs())
+                + ','
+                + nullableLong(summary.performance().totalAiAnalysisTimeMs())
+                + ','
+                + nullableDecimal(summary.performance().averageCandidateAnalysisTimeMs())
+                + ','
+                + summary.performance().timedProjectCount()
+                + ','
+                + summary.performance().timedCandidateCount();
     }
 
     private String formatStatusCounts(List<ShadowExperimentEvaluationReport.StatusCount> counts) {
@@ -251,6 +296,20 @@ public class ShadowExperimentEvaluationReportWriter {
 
     private String decimal(double value) {
         return "%.6f".formatted(value);
+    }
+
+    private String nullableDecimal(Double value) {
+        if (value == null) {
+            return "\"\"";
+        }
+        return decimal(value);
+    }
+
+    private String nullableLong(Long value) {
+        if (value == null) {
+            return "\"\"";
+        }
+        return Long.toString(value);
     }
 
     private String csv(String rawValue) {

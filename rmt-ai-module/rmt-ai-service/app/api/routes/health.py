@@ -15,4 +15,6 @@ async def health(runtime: Annotated[ServiceRuntime, Depends(get_runtime)]) -> He
         status=runtime.status,
         model_loaded=runtime.model_loaded,
         model_name=runtime.model_name,
+        experiment_profile=runtime.experiment_profile,
+        applied_thresholds=runtime.applied_thresholds,
     )

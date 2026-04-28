@@ -15,7 +15,10 @@ public record HttpAiAnalyzeResponse(
         List<Prediction> predictions,
         List<String> predictedLabels,
         Double confidence,
-        String explanation
+        String explanation,
+        String experimentProfile,
+        AppliedThresholds appliedThresholds,
+        Timing timing
 ) {
 
     @JsonIgnoreProperties(ignoreUnknown = true)
@@ -24,6 +27,22 @@ public record HttpAiAnalyzeResponse(
             String label,
             double score,
             boolean decision
+    ) {
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record AppliedThresholds(
+            Double templateMethod,
+            Double strategy,
+            Double factoryMethod
+    ) {
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record Timing(
+            Long analysisTimeMs
     ) {
     }
 }

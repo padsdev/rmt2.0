@@ -22,18 +22,20 @@ public class ShadowExperimentRecordFactory {
                 ));
 
         return aiAnalysis.candidateAnalyses().stream()
-                .map(candidateAnalysis -> toRecord(aiAnalysis.projectId(), candidateAnalysis, heuristicByCandidateId))
+                .map(candidateAnalysis -> toRecord(aiAnalysis, candidateAnalysis, heuristicByCandidateId))
                 .sorted(Comparator.comparing(ShadowExperimentRecord::candidateId))
                 .toList();
     }
 
     private ShadowExperimentRecord toRecord(
-            String projectId,
+            ProjectAiAnalysis aiAnalysis,
             ProjectAiAnalysis.CandidateAnalysis candidateAnalysis,
             Map<String, HeuristicCandidateObservation> heuristicByCandidateId
     ) {
+        var projectId = aiAnalysis.projectId();
         var heuristicObservation = heuristicByCandidateId.get(candidateAnalysis.candidateId());
         if (candidateAnalysis.result() instanceof AiClientResult.Success success) {
+            var thresholds = success.analysis().appliedThresholds();
             return new ShadowExperimentRecord(
                     projectId,
                     candidateAnalysis.candidateId(),
@@ -46,6 +48,13 @@ public class ShadowExperimentRecordFactory {
                     heuristicObservation == null ? null : heuristicObservation.referenceAuthors(),
                     success.analysis().predictedPatterns(),
                     success.analysis().confidence(),
+                    success.analysis().experimentProfile(),
+                    thresholds == null ? null : thresholds.templateMethod(),
+                    thresholds == null ? null : thresholds.strategy(),
+                    thresholds == null ? null : thresholds.factoryMethod(),
+                    candidateAnalysis.aiAnalysisTimeMs(),
+                    aiAnalysis.projectProcessingTimeMs(),
+                    aiAnalysis.averageCandidateAnalysisTimeMs(),
                     null,
                     null
             );
@@ -64,6 +73,13 @@ public class ShadowExperimentRecordFactory {
                 heuristicObservation == null ? null : heuristicObservation.referenceAuthors(),
                 List.of(),
                 null,
+                null,
+                null,
+                null,
+                null,
+                candidateAnalysis.aiAnalysisTimeMs(),
+                aiAnalysis.projectProcessingTimeMs(),
+                aiAnalysis.averageCandidateAnalysisTimeMs(),
                 failure.type().name(),
                 failure.reason().name()
         );

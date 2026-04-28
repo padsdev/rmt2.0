@@ -9,6 +9,7 @@ public record ShadowExperimentEvaluationReport(
         long totalInputLineCount,
         long parsedObservationCount,
         long schemaIssueCount,
+        List<ExperimentConfiguration> experimentConfigurations,
         MethodologySummary methodology,
         SliceSummary overall,
         List<ProjectSummary> perProject,
@@ -47,7 +48,9 @@ public record ShadowExperimentEvaluationReport(
             long case2HeuristicDetectsAiDoesNotCount,
             List<StatusCount> countByStatus,
             LabelMetrics microMetrics,
-            AverageMetrics macroMetrics
+            AverageMetrics macroMetrics,
+            List<String> experimentProfiles,
+            PerformanceSummary performance
     ) {
     }
 
@@ -76,6 +79,23 @@ public record ShadowExperimentEvaluationReport(
     public record StatusCount(
             String status,
             long count
+    ) {
+    }
+
+    public record ExperimentConfiguration(
+            String experimentProfile,
+            Double templateMethodThreshold,
+            Double strategyThreshold,
+            Double factoryMethodThreshold
+    ) {
+    }
+
+    public record PerformanceSummary(
+            Long totalProjectProcessingTimeMs,
+            Long totalAiAnalysisTimeMs,
+            Double averageCandidateAnalysisTimeMs,
+            long timedProjectCount,
+            long timedCandidateCount
     ) {
     }
 
@@ -113,7 +133,14 @@ public record ShadowExperimentEvaluationReport(
             boolean discordant,
             boolean case1AiDetectsHeuristicDoesNot,
             boolean case2HeuristicDetectsAiDoesNot,
-            List<String> case1PredictedOnlyLabels
+            List<String> case1PredictedOnlyLabels,
+            String experimentProfile,
+            Double templateMethodThreshold,
+            Double strategyThreshold,
+            Double factoryMethodThreshold,
+            Long aiAnalysisTimeMs,
+            Long projectProcessingTimeMs,
+            Double averageCandidateAnalysisTimeMs
     ) {
     }
 
@@ -131,7 +158,14 @@ public record ShadowExperimentEvaluationReport(
             boolean case1AiDetectsHeuristicDoesNot,
             boolean case2HeuristicDetectsAiDoesNot,
             List<String> disagreementCases,
-            List<String> case1PredictedOnlyLabels
+            List<String> case1PredictedOnlyLabels,
+            String experimentProfile,
+            Double templateMethodThreshold,
+            Double strategyThreshold,
+            Double factoryMethodThreshold,
+            Long aiAnalysisTimeMs,
+            Long projectProcessingTimeMs,
+            Double averageCandidateAnalysisTimeMs
     ) {
     }
 
@@ -144,6 +178,13 @@ public record ShadowExperimentEvaluationReport(
             String traceId,
             String observationStatus,
             String heuristicPattern,
+            String experimentProfile,
+            Double templateMethodThreshold,
+            Double strategyThreshold,
+            Double factoryMethodThreshold,
+            Long aiAnalysisTimeMs,
+            Long projectProcessingTimeMs,
+            Double averageCandidateAnalysisTimeMs,
             String failureType,
             String failureReason
     ) {

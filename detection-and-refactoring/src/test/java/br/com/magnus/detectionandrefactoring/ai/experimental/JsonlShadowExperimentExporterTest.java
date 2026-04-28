@@ -38,6 +38,13 @@ class JsonlShadowExperimentExporterTest {
                         "authors",
                         List.of(DesignPattern.STRATEGY),
                         0.87,
+                        "low-template-threshold",
+                        0.10,
+                        0.55,
+                        0.50,
+                        12L,
+                        34L,
+                        12.0,
                         null,
                         null
                 )
@@ -50,6 +57,9 @@ class JsonlShadowExperimentExporterTest {
         assertTrue(lines.getFirst().contains("\"candidate_id\":\"candidate-1\""));
         assertTrue(lines.getFirst().contains("\"predicted_labels\":[\"STRATEGY\"]"));
         assertTrue(lines.getFirst().contains("\"confidence\":0.87"));
+        assertTrue(lines.getFirst().contains("\"experiment_profile\":\"low-template-threshold\""));
+        assertTrue(lines.getFirst().contains("\"template_method_threshold\":0.1"));
+        assertTrue(lines.getFirst().contains("\"ai_analysis_time_ms\":12"));
         assertTrue(lines.getFirst().contains("\"observation_status\":\"VALID_OBSERVATION\""));
     }
 }

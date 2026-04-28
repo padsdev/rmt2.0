@@ -74,7 +74,10 @@ public class HttpAiContractMapper {
                 predictions,
                 predictedPatterns,
                 response.confidence(),
-                response.explanation()
+                response.explanation(),
+                response.experimentProfile(),
+                toAppliedThresholds(response.appliedThresholds()),
+                toTiming(response.timing())
         );
     }
 
@@ -95,5 +98,23 @@ public class HttpAiContractMapper {
         } catch (IllegalArgumentException exception) {
             throw new IncompatibleAiContractException("Unsupported AI label: " + label, exception);
         }
+    }
+
+    private AiAnalysis.AppliedThresholds toAppliedThresholds(HttpAiAnalyzeResponse.AppliedThresholds appliedThresholds) {
+        if (appliedThresholds == null) {
+            return null;
+        }
+        return new AiAnalysis.AppliedThresholds(
+                appliedThresholds.templateMethod(),
+                appliedThresholds.strategy(),
+                appliedThresholds.factoryMethod()
+        );
+    }
+
+    private AiAnalysis.Timing toTiming(HttpAiAnalyzeResponse.Timing timing) {
+        if (timing == null) {
+            return null;
+        }
+        return new AiAnalysis.Timing(timing.analysisTimeMs());
     }
 }

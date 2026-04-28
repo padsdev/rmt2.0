@@ -13,6 +13,8 @@ class ServiceRuntime:
     model_name: str
     model_version: str
     backend_mode: str
+    experiment_profile: str
+    applied_thresholds: dict[str, float]
     model_loaded: bool = False
     startup_complete: bool = False
 

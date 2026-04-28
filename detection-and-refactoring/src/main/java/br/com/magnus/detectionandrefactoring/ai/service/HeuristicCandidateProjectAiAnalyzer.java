@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Component
@@ -25,12 +26,32 @@ public class HeuristicCandidateProjectAiAnalyzer implements ProjectAiAnalyzer {
 
     @Override
     public ProjectAiAnalysis analyze(Project project) {
+        var projectStartedAt = System.nanoTime();
         var refactorFiles = Optional.ofNullable(project.getRefactorFiles()).orElse(List.of());
         var candidateAnalyses = new ArrayList<ProjectAiAnalysis.CandidateAnalysis>();
+        long totalAiAnalysisTimeMs = 0L;
         for (var files : refactorFiles) {
-            candidateAnalyses.addAll(analyzeRefactorFiles(project, files));
+            var analyses = analyzeRefactorFiles(project, files);
+            candidateAnalyses.addAll(analyses);
+            totalAiAnalysisTimeMs += analyses.stream()
+                    .map(ProjectAiAnalysis.CandidateAnalysis::aiAnalysisTimeMs)
+                    .filter(java.util.Objects::nonNull)
+                    .mapToLong(Long::longValue)
+                    .sum();
         }
-        return new ProjectAiAnalysis(project.getId(), List.copyOf(candidateAnalyses));
+        var projectProcessingTimeMs = elapsedMillis(projectStartedAt);
+        var analyzedCandidateCount = candidateAnalyses.size();
+        var averageCandidateAnalysisTimeMs = analyzedCandidateCount == 0
+                ? null
+                : (double) totalAiAnalysisTimeMs / analyzedCandidateCount;
+        return new ProjectAiAnalysis(
+                project.getId(),
+                List.copyOf(candidateAnalyses),
+                projectProcessingTimeMs,
+                totalAiAnalysisTimeMs,
+                averageCandidateAnalysisTimeMs,
+                analyzedCandidateCount
+        );
     }
 
     private List<ProjectAiAnalysis.CandidateAnalysis> analyzeRefactorFiles(Project project, RefactorFiles refactorFiles) {
@@ -43,14 +64,17 @@ public class HeuristicCandidateProjectAiAnalyzer implements ProjectAiAnalyzer {
                     continue;
                 }
 
+                var analysisStartedAt = System.nanoTime();
                 var response = rmtAiClient.analyze(request.get());
+                var aiAnalysisTimeMs = elapsedMillis(analysisStartedAt);
                 analyses.add(new ProjectAiAnalysis.CandidateAnalysis(
                         request.get().candidateId(),
                         request.get().entityId(),
                         request.get().traceId(),
-                        response
+                        response,
+                        aiAnalysisTimeMs
                 ));
-                logOutcome(project, request.get(), response);
+                logOutcome(project, request.get(), response, aiAnalysisTimeMs);
             } catch (RuntimeException exception) {
                 log.warn("Best-effort AI analysis failed for projectId={} candidateId={}: {}",
                         project.getId(), candidate.getId(), exception.getMessage());
@@ -59,30 +83,42 @@ public class HeuristicCandidateProjectAiAnalyzer implements ProjectAiAnalyzer {
         return List.copyOf(analyses);
     }
 
-    private void logOutcome(Project project, br.com.magnus.detectionandrefactoring.ai.domain.AiAnalysisRequest request, AiClientResult result) {
+    private void logOutcome(
+            Project project,
+            br.com.magnus.detectionandrefactoring.ai.domain.AiAnalysisRequest request,
+            AiClientResult result,
+            long aiAnalysisTimeMs
+    ) {
         if (result instanceof AiClientResult.Success success) {
             log.info(
-                    "ai_shadow_observation project_id={} candidate_id={} entity_id={} trace_id={} predicted_labels={} confidence={}",
+                    "ai_shadow_observation project_id={} candidate_id={} entity_id={} trace_id={} predicted_labels={} confidence={} experiment_profile={} ai_analysis_time_ms={}",
                     project.getId(),
                     request.candidateId(),
                     request.entityId(),
                     request.traceId(),
                     success.analysis().predictedPatterns(),
-                    success.analysis().confidence()
+                    success.analysis().confidence(),
+                    success.analysis().experimentProfile(),
+                    aiAnalysisTimeMs
             );
             return;
         }
 
         if (result instanceof AiClientResult.Failure failure) {
             log.warn(
-                    "ai_shadow_failure project_id={} candidate_id={} entity_id={} trace_id={} failure_type={} failure_reason={}",
+                    "ai_shadow_failure project_id={} candidate_id={} entity_id={} trace_id={} failure_type={} failure_reason={} ai_analysis_time_ms={}",
                     project.getId(),
                     request.candidateId(),
                     request.entityId(),
                     request.traceId(),
                     failure.failure().type(),
-                    failure.failure().reason()
+                    failure.failure().reason(),
+                    aiAnalysisTimeMs
             );
         }
+    }
+
+    private long elapsedMillis(long startedAtNanos) {
+        return TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAtNanos);
     }
 }

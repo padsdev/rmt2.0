@@ -41,6 +41,11 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8000:8000"
+    environment:
+      - RMT_AI_EXPERIMENT_PROFILE=${RMT_AI_EXPERIMENT_PROFILE:-default}
+      - RMT_AI_THRESHOLD_TEMPLATE_METHOD=${RMT_AI_THRESHOLD_TEMPLATE_METHOD:-}
+      - RMT_AI_THRESHOLD_STRATEGY=${RMT_AI_THRESHOLD_STRATEGY:-}
+      - RMT_AI_THRESHOLD_FACTORY_METHOD=${RMT_AI_THRESHOLD_FACTORY_METHOD:-}
 
   intermediary:
     image: magnus/manager

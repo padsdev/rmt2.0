@@ -54,6 +54,12 @@ class ModelInfo(BaseModel):
     version: str
 
 
+class AppliedThresholds(BaseModel):
+    template_method: float = Field(ge=0.0, le=1.0)
+    strategy: float = Field(ge=0.0, le=1.0)
+    factory_method: float = Field(ge=0.0, le=1.0)
+
+
 class Prediction(BaseModel):
     label: PatternLabel
     score: float = Field(ge=0.0, le=1.0)
@@ -67,6 +73,10 @@ class Evidence(BaseModel):
     features_used: list[str]
 
 
+class TimingInfo(BaseModel):
+    analysis_time_ms: int = Field(ge=0)
+
+
 class AnalyzeResponse(BaseModel):
     trace_id: UUID
     entity_id: str
@@ -77,3 +87,6 @@ class AnalyzeResponse(BaseModel):
     confidence: float = Field(ge=0.0, le=1.0)
     explanation: str
     evidence: Evidence
+    experiment_profile: str | None = None
+    applied_thresholds: AppliedThresholds | None = None
+    timing: TimingInfo | None = None

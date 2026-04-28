@@ -10,6 +10,12 @@ def test_health_endpoint_reflects_stub_runtime_state(client: LifecycleHttpClient
         "status": "degraded",
         "model_loaded": False,
         "model_name": "graphcodebert-rmt-v1",
+        "experiment_profile": "default",
+        "applied_thresholds": {
+            "template_method": 0.5,
+            "strategy": 0.55,
+            "factory_method": 0.5,
+        },
     }
 
 

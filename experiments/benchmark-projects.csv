@@ -1,0 +1,18 @@
+project_id,name,path,commit,notes
+jadventure,JAdventure,target-projects/JAdventure-master.zip,master,maven; version 0.4.0-SNAPSHOT
+javacord,Javacord,target-projects/Javacord-master.zip,master,gradle; version 3.9.0-SNAPSHOT; archived upstream
+caliper,Caliper,target-projects/caliper-master.zip,master,maven; HEAD-SNAPSHOT; archived upstream
+data-structures-and-algorithms-made-easy-in-java,Data Structures And Algorithms Made Easy In Java,target-projects/data-structures-and-algorithms-made-easy-in-java-master.zip,master,source snapshot; no root build manifest detected
+geoip-api-java,GeoIP Legacy Java API,target-projects/geoip-api-java-main.zip,main,maven; version 1.3.2-SNAPSHOT; end-of-life upstream
+gradle-retrolambda,Gradle Retrolambda Plugin,target-projects/gradle-retrolambda-main.zip,main,gradle; version 3.7.1
+java-game-server,Nadron Java Game Server,target-projects/java-game-server-main.zip,main,multi-module maven; example-games 0.4-SNAPSHOT
+jfairy,jFairy,target-projects/jfairy-master.zip,master,maven; version resolved from revision property
+jnativehook,JNativeHook,target-projects/jnativehook-2.2.zip,2.2,maven; revision property 2.2-SNAPSHOT
+joinery,Joinery,target-projects/joinery-master.zip,master,maven; version 1.11-SNAPSHOT
+jpush-api-java-client,JPush API Java Client,target-projects/jpush-api-java-client-master.zip,master,maven; version 3.7.8
+kurento-java,kurento-java,target-projects/kurento-java-master.zip,master,multi-module maven; parent version 6.18.1-SNAPSHOT
+leveldb,LevelDB in Java,target-projects/leveldb-master.zip,master,multi-module maven; parent version 0.13-SNAPSHOT
+opencensus-java,OpenCensus Java,target-projects/opencensus-java-master.zip,master,multi-module gradle; examples version 0.32.0-SNAPSHOT; archived upstream
+play-authenticate,PlayAuthenticate,target-projects/play-authenticate-master.zip,master,Play Framework plugin; README indicates 0.9.x on master; archived upstream
+raml-java-parser,RAML Java Parser,target-projects/raml-java-parser-master.zip,master,maven; parent version 1.0.51-SNAPSHOT; deprecated upstream
+vlcj,vlcj,target-projects/vlcj-master.zip,master,maven; version 5.0.0-SNAPSHOT

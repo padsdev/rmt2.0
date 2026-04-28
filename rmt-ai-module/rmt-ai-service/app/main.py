@@ -23,6 +23,8 @@ def create_app() -> FastAPI:
         model_name=settings.model_name,
         model_version=settings.model_version,
         backend_mode=settings.backend_mode,
+        experiment_profile=settings.experiment_profile,
+        applied_thresholds=settings.resolved_thresholds().model_dump(),
     )
 
     @asynccontextmanager

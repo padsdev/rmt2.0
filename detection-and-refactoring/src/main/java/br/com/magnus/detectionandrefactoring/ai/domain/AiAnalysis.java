@@ -11,13 +11,39 @@ public record AiAnalysis(
         List<Prediction> predictions,
         List<DesignPattern> predictedPatterns,
         Double confidence,
-        String explanation
+        String explanation,
+        String experimentProfile,
+        AppliedThresholds appliedThresholds,
+        Timing timing
 ) {
+
+    public AiAnalysis(
+            UUID traceId,
+            String entityId,
+            List<Prediction> predictions,
+            List<DesignPattern> predictedPatterns,
+            Double confidence,
+            String explanation
+    ) {
+        this(traceId, entityId, predictions, predictedPatterns, confidence, explanation, null, null, null);
+    }
 
     public record Prediction(
             DesignPattern pattern,
             double score,
             boolean decision
+    ) {
+    }
+
+    public record AppliedThresholds(
+            Double templateMethod,
+            Double strategy,
+            Double factoryMethod
+    ) {
+    }
+
+    public record Timing(
+            Long analysisTimeMs
     ) {
     }
 }

@@ -14,6 +14,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -248,6 +249,15 @@ public class ShadowExperimentEvaluationPipeline {
                 .distinct()
                 .sorted(Comparator.comparing(Enum::name))
                 .toList();
+        var experimentConfigurations = allRecords.stream()
+                .map(this::toExperimentConfiguration)
+                .flatMap(Stream::ofNullable)
+                .distinct()
+                .sorted(Comparator.comparing(
+                        ShadowExperimentEvaluationReport.ExperimentConfiguration::experimentProfile,
+                        Comparator.nullsLast(String::compareTo)
+                ))
+                .toList();
 
         var overall = buildSliceSummary("overall", "overall", allRecords, validRecordValues, patterns);
         var perProject = allRecords.stream()
@@ -272,6 +282,7 @@ public class ShadowExperimentEvaluationPipeline {
                 countNonBlankLines(resolvedFiles),
                 parsedLines.size(),
                 schemaIssues.size(),
+                experimentConfigurations,
                 methodology,
                 overall,
                 perProject,
@@ -311,6 +322,13 @@ public class ShadowExperimentEvaluationPipeline {
                 record.traceId().toString(),
                 record.observationStatus().name(),
                 record.heuristicPattern() == null ? null : record.heuristicPattern().name(),
+                record.experimentProfile(),
+                record.templateMethodThreshold(),
+                record.strategyThreshold(),
+                record.factoryMethodThreshold(),
+                record.aiAnalysisTimeMs(),
+                record.projectProcessingTimeMs(),
+                record.averageCandidateAnalysisTimeMs(),
                 record.failureType(),
                 record.failureReason()
         );
@@ -333,7 +351,14 @@ public class ShadowExperimentEvaluationPipeline {
                 classification.discordant(),
                 classification.case1AiDetectsHeuristicDoesNot(),
                 classification.case2HeuristicDetectsAiDoesNot(),
-                classification.case1PredictedOnlyLabels().stream().map(Enum::name).toList()
+                classification.case1PredictedOnlyLabels().stream().map(Enum::name).toList(),
+                record.experimentProfile(),
+                record.templateMethodThreshold(),
+                record.strategyThreshold(),
+                record.factoryMethodThreshold(),
+                record.aiAnalysisTimeMs(),
+                record.projectProcessingTimeMs(),
+                record.averageCandidateAnalysisTimeMs()
         );
     }
 
@@ -366,7 +391,14 @@ public class ShadowExperimentEvaluationPipeline {
                 classification.case1AiDetectsHeuristicDoesNot(),
                 classification.case2HeuristicDetectsAiDoesNot(),
                 List.copyOf(disagreementCases),
-                classification.case1PredictedOnlyLabels().stream().map(Enum::name).toList()
+                classification.case1PredictedOnlyLabels().stream().map(Enum::name).toList(),
+                record.experimentProfile(),
+                record.templateMethodThreshold(),
+                record.strategyThreshold(),
+                record.factoryMethodThreshold(),
+                record.aiAnalysisTimeMs(),
+                record.projectProcessingTimeMs(),
+                record.averageCandidateAnalysisTimeMs()
         );
     }
 
@@ -425,7 +457,9 @@ public class ShadowExperimentEvaluationPipeline {
                 case2Count,
                 statusCounts,
                 micro,
-                macro
+                macro,
+                collectExperimentProfiles(allRecords),
+                buildPerformanceSummary(allRecords)
         );
     }
 
@@ -483,6 +517,62 @@ public class ShadowExperimentEvaluationPipeline {
                 case2Count,
                 buildStatusCounts(patternRecords),
                 metrics
+        );
+    }
+
+    private List<String> collectExperimentProfiles(List<ShadowExperimentRecord> records) {
+        return records.stream()
+                .map(ShadowExperimentRecord::experimentProfile)
+                .filter(Objects::nonNull)
+                .distinct()
+                .sorted()
+                .toList();
+    }
+
+    private ShadowExperimentEvaluationReport.PerformanceSummary buildPerformanceSummary(List<ShadowExperimentRecord> records) {
+        Map<String, Long> projectProcessingByProject = new LinkedHashMap<>();
+        long totalAiAnalysisTimeMs = 0L;
+        long timedCandidateCount = 0L;
+
+        for (var record : records) {
+            if (record.projectId() != null && record.projectProcessingTimeMs() != null) {
+                projectProcessingByProject.putIfAbsent(record.projectId(), record.projectProcessingTimeMs());
+            }
+            if (record.aiAnalysisTimeMs() != null) {
+                totalAiAnalysisTimeMs += record.aiAnalysisTimeMs();
+                timedCandidateCount++;
+            }
+        }
+
+        Long totalProjectProcessingTimeMs = projectProcessingByProject.isEmpty()
+                ? null
+                : projectProcessingByProject.values().stream().mapToLong(Long::longValue).sum();
+        Double averageCandidateAnalysisTimeMs = timedCandidateCount == 0
+                ? null
+                : round((double) totalAiAnalysisTimeMs / timedCandidateCount);
+
+        return new ShadowExperimentEvaluationReport.PerformanceSummary(
+                totalProjectProcessingTimeMs,
+                timedCandidateCount == 0 ? null : totalAiAnalysisTimeMs,
+                averageCandidateAnalysisTimeMs,
+                projectProcessingByProject.size(),
+                timedCandidateCount
+        );
+    }
+
+    private ShadowExperimentEvaluationReport.ExperimentConfiguration toExperimentConfiguration(ShadowExperimentRecord record) {
+        if (record.experimentProfile() == null
+                && record.templateMethodThreshold() == null
+                && record.strategyThreshold() == null
+                && record.factoryMethodThreshold() == null) {
+            return null;
+        }
+
+        return new ShadowExperimentEvaluationReport.ExperimentConfiguration(
+                record.experimentProfile(),
+                record.templateMethodThreshold(),
+                record.strategyThreshold(),
+                record.factoryMethodThreshold()
         );
     }
 

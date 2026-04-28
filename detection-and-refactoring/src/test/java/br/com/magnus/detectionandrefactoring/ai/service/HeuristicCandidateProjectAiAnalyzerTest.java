@@ -19,6 +19,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -63,9 +64,14 @@ class HeuristicCandidateProjectAiAnalyzerTest {
 
         assertEquals("project-17", analysis.projectId());
         assertEquals(1, analysis.candidateAnalyses().size());
+        assertEquals(1, analysis.analyzedCandidateCount());
+        assertNotNull(analysis.projectProcessingTimeMs());
+        assertNotNull(analysis.totalAiAnalysisTimeMs());
+        assertNotNull(analysis.averageCandidateAnalysisTimeMs());
         var candidateAnalysis = analysis.candidateAnalyses().getFirst();
         assertEquals("candidate-1", candidateAnalysis.candidateId());
         assertEquals(request.traceId(), candidateAnalysis.traceId());
+        assertNotNull(candidateAnalysis.aiAnalysisTimeMs());
         var success = assertInstanceOf(AiClientResult.Success.class, candidateAnalysis.result());
         assertEquals(List.of(DesignPattern.STRATEGY), success.analysis().predictedPatterns());
     }

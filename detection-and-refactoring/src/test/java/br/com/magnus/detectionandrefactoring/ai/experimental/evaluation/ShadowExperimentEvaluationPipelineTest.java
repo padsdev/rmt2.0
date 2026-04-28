@@ -179,8 +179,38 @@ class ShadowExperimentEvaluationPipelineTest {
         assertTrue(patternCsv.contains("\"FACTORY_METHOD\",2,2,1,0,2,2,1.000000,1,0,2,0,0,2,1.000000,1.000000,1.000000,\"VALID_OBSERVATION:2\""));
         assertTrue(validObservationsCsv.contains("\"candidate-2\",\"entity-2\",\"22222222-2222-2222-2222-222222222222\",\"FACTORY_METHOD\",\"STRATEGY|FACTORY_METHOD\",0.830000,true,true,true,false,\"STRATEGY\""));
         assertTrue(discordantObservationsCsv.contains("\"candidate-4\",\"entity-4\",\"44444444-4444-4444-4444-444444444444\",\"STRATEGY\",\"TEMPLATE_METHOD\",0.620000,false,true,true,\"CASE_1_AI_DETECTS_HEURISTIC_DOES_NOT|CASE_2_HEURISTIC_DETECTS_AI_DOES_NOT\",\"TEMPLATE_METHOD\""));
-        assertTrue(failuresCsv.contains("\"SERVICE_FAILURE\",\"STRATEGY\",\"SERVICE_UNAVAILABLE\",\"HTTP_STATUS\""));
+        assertTrue(failuresCsv.contains("\"SERVICE_UNAVAILABLE\",\"HTTP_STATUS\""));
         assertTrue(schemaIssuesCsv.contains("\"Field predicted_labels must be an array\""));
+    }
+
+    @Test
+    void shouldExposeOptionalThresholdAndTimingFieldsWhenAvailable() throws Exception {
+        var input = tempDir.resolve("shadow-with-metadata.jsonl");
+        Files.writeString(input, """
+                {"project_id":"project-tuned","candidate_id":"candidate-1","entity_id":"entity-1","trace_id":"77777777-7777-7777-7777-777777777777","observation_status":"VALID_OBSERVATION","heuristic_pattern":"TEMPLATE_METHOD","heuristic_reference_title":"ref","heuristic_reference_year":2016,"heuristic_reference_authors":"authors","predicted_labels":["TEMPLATE_METHOD"],"confidence":0.14,"experiment_profile":"low-template-threshold","template_method_threshold":0.10,"strategy_threshold":0.55,"factory_method_threshold":0.50,"ai_analysis_time_ms":15,"project_processing_time_ms":40,"average_candidate_analysis_time_ms":15.0}
+                {"project_id":"project-tuned","candidate_id":"candidate-2","entity_id":"entity-2","trace_id":"88888888-8888-8888-8888-888888888888","observation_status":"TIMEOUT","heuristic_pattern":"TEMPLATE_METHOD","heuristic_reference_title":"ref","heuristic_reference_year":2016,"heuristic_reference_authors":"authors","predicted_labels":[],"ai_analysis_time_ms":20,"project_processing_time_ms":40,"average_candidate_analysis_time_ms":17.5,"failure_type":"SERVICE_UNAVAILABLE","failure_reason":"TIMEOUT"}
+                """);
+
+        var report = pipeline.evaluate(List.of(input));
+        reportWriter.write(tempDir, report);
+
+        assertEquals(List.of("low-template-threshold"), report.overall().experimentProfiles());
+        assertEquals(40L, report.overall().performance().totalProjectProcessingTimeMs());
+        assertEquals(35L, report.overall().performance().totalAiAnalysisTimeMs());
+        assertEquals(17.5d, report.overall().performance().averageCandidateAnalysisTimeMs());
+        assertEquals(1, report.overall().performance().timedProjectCount());
+        assertEquals(2, report.overall().performance().timedCandidateCount());
+        assertEquals(1, report.experimentConfigurations().size());
+        assertEquals("low-template-threshold", report.experimentConfigurations().getFirst().experimentProfile());
+
+        var validObservationsCsv = Files.readString(tempDir.resolve("shadow-evaluation-valid-observations.csv"));
+        var failuresCsv = Files.readString(tempDir.resolve("shadow-evaluation-failures.csv"));
+        var overallCsv = Files.readString(tempDir.resolve("shadow-evaluation-overall.csv"));
+
+        assertTrue(validObservationsCsv.contains("\"low-template-threshold\",0.100000,0.550000,0.500000,15,40,15.000000"));
+        assertTrue(failuresCsv.contains("\"TEMPLATE_METHOD\",\"\","
+                + "\"\",\"\",\"\",20,40,17.500000,\"SERVICE_UNAVAILABLE\",\"TIMEOUT\""));
+        assertTrue(overallCsv.contains("\"low-template-threshold\",40,35,17.500000,1,2"));
     }
 
     private Path fixture(String location) {
