@@ -279,3 +279,5 @@ models/
 # Generated experiment outputs
 experiments/runs/
 experiments/artifacts/
+
+rmt-ai-module/rmt-ai-service/.venv-py312/
