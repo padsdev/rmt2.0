@@ -259,3 +259,23 @@ metrics-agent/target/**
 final.md
 dev-log.md
 time.md
+
+# Local Python/runtime
+.local-python/
+.venv/
+venv/
+__pycache__/
+.pytest_cache/
+
+# Hugging Face cache/models
+.hf-cache/
+.cache/huggingface/
+huggingface/
+models/
+
+# IDE
+.vscode/
+
+# Generated experiment outputs
+experiments/runs/
+experiments/artifacts/

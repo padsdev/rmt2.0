@@ -1,19 +1,52 @@
 # RMT AI Service
 
-Scaffold do Milestone 1 para o serviço Python da RMT.
+Serviço Python da RMT com três backends:
 
-## Escopo atual
+- `stub`: caminho determinístico para testes rápidos, validação de contrato e baseline;
+- `graphcodebert`: inferência zero-shot baseada em embeddings do `microsoft/graphcodebert-base`.
+- `graphcodebert_finetuned`: inferência supervisionada a partir de checkpoint treinado offline com o dataset grounded.
 
-- expõe `GET /health`;
-- expõe `POST /api/v1/analyze`;
-- usa backend `stub` substituível para validar contrato HTTP sem inferência real;
-- reporta `model_loaded=false` enquanto não houver checkpoint carregado de verdade.
+## Endpoints
 
-## Fora de escopo neste milestone
+- `GET /health`
+- `GET /api/v1/model/info`
+- `POST /api/v1/analyze`
 
-- `POST /api/v1/analyze/batch`;
-- `GET /api/v1/model/info`;
-- inferência real com GraphCodeBERT;
-- model registry, checkpoint loading e thresholds versionados.
+## Configuração relevante
 
-Esses pontos permanecem adiados de propósito para manter o Milestone 1 pequeno, coeso e seguro para evolução posterior.
+- `RMT_AI_BACKEND_MODE=stub|graphcodebert|graphcodebert_finetuned`
+- `RMT_AI_GRAPHCODEBERT_MODEL_NAME=microsoft/graphcodebert-base`
+- `RMT_AI_FINETUNED_ARTIFACT_PATH=/abs/path/to/artifacts`
+- `RMT_AI_MODEL_MAX_LENGTH=512`
+- `RMT_AI_DEVICE_PREFERENCE=auto|cpu|cuda|mps`
+- `RMT_AI_EXPERIMENT_PROFILE=default|low-template-threshold|per-pattern-threshold`
+
+## Observações
+
+- O backend `graphcodebert` carrega tokenizer e modelo no startup do FastAPI.
+- O backend `graphcodebert_finetuned` carrega tokenizer, encoder, checkpoint e thresholds calibrados no startup.
+- `model_loaded=true` só é exposto quando o carregamento do backend real conclui com sucesso.
+- A estratégia atual de inferência real é zero-shot por similaridade entre embedding de código e embeddings de descrições textuais dos padrões suportados.
+- O pipeline supervisionado usa `heuristic_pattern` como rótulo operacional. Isso não é ground truth absoluto.
+
+## Treinamento offline
+
+Execute a partir de `rmt-ai-module/rmt-ai-service`:
+
+```bash
+python -m training.train \
+  --input /abs/path/to/grounded-jsonl \
+  --output /abs/path/to/training-artifacts \
+  --epochs 3 \
+  --batch-size 4 \
+  --seed 42
+```
+
+Artifacts gerados:
+
+- `checkpoint.pt`
+- `label_mapping.json`
+- `thresholds.json`
+- `training_config.json`
+- `metrics.json`
+- `split_manifest.json`
