@@ -1,7 +1,9 @@
 package br.com.magnus.detectionandrefactoring.ai.experimental;
 
 import br.com.magnus.config.starter.patterns.DesignPattern;
+import br.com.magnus.detectionandrefactoring.ai.configuration.RmtAiProperties;
 import br.com.magnus.detectionandrefactoring.ai.domain.AiAnalysis;
+import br.com.magnus.detectionandrefactoring.ai.domain.AiAnalysisRequest;
 import br.com.magnus.detectionandrefactoring.ai.domain.AiClientResult;
 import br.com.magnus.detectionandrefactoring.ai.domain.AiFailure;
 import br.com.magnus.detectionandrefactoring.ai.domain.ProjectAiAnalysis;
@@ -14,7 +16,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class ShadowExperimentRecordFactoryTest {
 
-    private final ShadowExperimentRecordFactory factory = new ShadowExperimentRecordFactory();
+    private final RmtAiProperties properties = new RmtAiProperties();
+    private final ShadowExperimentRecordFactory factory = new ShadowExperimentRecordFactory(properties);
 
     @Test
     void shouldCreateStableRecordForValidObservation() {
@@ -35,7 +38,11 @@ class ShadowExperimentRecordFactoryTest {
                                         new AiAnalysis.AppliedThresholds(0.10, 0.55, 0.20),
                                         new AiAnalysis.Timing(7L)
                                 )),
-                                9L
+                                9L,
+                                "void calculate() { return strategy.apply(); }",
+                                "method",
+                                context("src/main/java/foo/Bar.java", "Bar", "calculate"),
+                                "wei"
                         )
                 ), 42L, 9L, 9.0, 1),
                 new ProjectHeuristicObservations("project-17", List.of(
@@ -63,6 +70,12 @@ class ShadowExperimentRecordFactoryTest {
         assertEquals(42L, record.projectProcessingTimeMs());
         assertEquals(9.0, record.averageCandidateAnalysisTimeMs());
         assertEquals(null, record.failureType());
+        assertEquals("void calculate() { return strategy.apply(); }", record.sourceCode());
+        assertEquals("method", record.sliceType());
+        assertEquals("src/main/java/foo/Bar.java", record.filePath());
+        assertEquals("Bar", record.className());
+        assertEquals("calculate", record.methodName());
+        assertEquals("wei", record.extractorType());
     }
 
     @Test
@@ -78,7 +91,11 @@ class ShadowExperimentRecordFactoryTest {
                                         AiFailure.Reason.TIMEOUT,
                                         "timed out"
                                 )),
-                                11L
+                                11L,
+                                "class TimeoutCase {}",
+                                "compilation_unit",
+                                context("src/main/java/foo/TimeoutCase.java", "TimeoutCase", "execute"),
+                                "zafeiris"
                         )
                 ), 25L, 11L, 11.0, 1),
                 new ProjectHeuristicObservations("project-17", List.of())
@@ -94,7 +111,11 @@ class ShadowExperimentRecordFactoryTest {
                                         AiFailure.Reason.INCOMPATIBLE_CONTRACT,
                                         "missing field"
                                 )),
-                                13L
+                                13L,
+                                "void broken() {}",
+                                "method",
+                                context("src/main/java/foo/Broken.java", "Broken", "broken"),
+                                "wei"
                         )
                 ), 31L, 13L, 13.0, 1),
                 new ProjectHeuristicObservations("project-17", List.of())
@@ -110,5 +131,52 @@ class ShadowExperimentRecordFactoryTest {
         assertEquals(31L, contractRecords.getFirst().projectProcessingTimeMs());
         assertEquals("CONTRACT_ERROR", contractRecords.getFirst().failureType());
         assertEquals("INCOMPATIBLE_CONTRACT", contractRecords.getFirst().failureReason());
+    }
+
+    @Test
+    void shouldOmitSourceCodeWhenExportIsDisabled() {
+        properties.setExportSourceCode(false);
+
+        var records = factory.create(
+                new ProjectAiAnalysis("project-17", List.of(
+                        new ProjectAiAnalysis.CandidateAnalysis(
+                                "candidate-1",
+                                "src/main/java/foo/Bar.java::Bar::calculate",
+                                UUID.fromString("9ce0db76-b5ea-4722-8c1c-4d8a8a8250e4"),
+                                new AiClientResult.Success(new AiAnalysis(
+                                        UUID.fromString("9ce0db76-b5ea-4722-8c1c-4d8a8a8250e4"),
+                                        "src/main/java/foo/Bar.java::Bar::calculate",
+                                        List.of(new AiAnalysis.Prediction(DesignPattern.STRATEGY, 0.87, true)),
+                                        List.of(DesignPattern.STRATEGY),
+                                        0.87,
+                                        "shadow"
+                                )),
+                                9L,
+                                "void calculate() { return strategy.apply(); }",
+                                "method",
+                                context("src/main/java/foo/Bar.java", "Bar", "calculate"),
+                                "wei"
+                        )
+                )),
+                new ProjectHeuristicObservations("project-17", List.of())
+        );
+
+        assertEquals(null, records.getFirst().sourceCode());
+        assertEquals("method", records.getFirst().sliceType());
+        assertEquals("src/main/java/foo/Bar.java", records.getFirst().filePath());
+    }
+
+    private AiAnalysisRequest.Context context(String filePath, String className, String methodName) {
+        return new AiAnalysisRequest.Context(
+                filePath,
+                "foo",
+                className,
+                methodName,
+                null,
+                List.of(),
+                List.of(),
+                null,
+                null
+        );
     }
 }

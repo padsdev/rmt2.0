@@ -213,6 +213,21 @@ class ShadowExperimentEvaluationPipelineTest {
         assertTrue(overallCsv.contains("\"low-template-threshold\",40,35,17.500000,1,2"));
     }
 
+    @Test
+    void shouldEvaluateGroundedJsonlWithEscapedSourceCodeUnchanged() throws Exception {
+        var input = tempDir.resolve("shadow-grounded.jsonl");
+        Files.writeString(input, """
+                {"project_id":"project-grounded","candidate_id":"candidate-1","entity_id":"entity-1","trace_id":"99999999-9999-9999-9999-999999999999","observation_status":"VALID_OBSERVATION","heuristic_pattern":"STRATEGY","heuristic_reference_title":"ref","heuristic_reference_year":2017,"heuristic_reference_authors":"authors","predicted_labels":["STRATEGY"],"confidence":0.87,"source_code":"@Deprecated\\nclass Caf\\u00e9 {\\n\\tString path = \\"C:\\\\\\\\temp\\\\\\\\demo\\";\\n\\tvoid render() { System.out.println(\\"pi=\\\\u03c0\\"); }\\n}","slice_type":"method","file_path":"src/main/java/foo/Cafe.java","class_name":"Cafe","method_name":"render","extractor_type":"wei"}
+                """);
+
+        var report = pipeline.evaluate(List.of(input));
+
+        assertEquals(1, report.parsedObservationCount());
+        assertEquals(0, report.schemaIssueCount());
+        assertEquals(1, report.validObservations().size());
+        assertEquals(1.0d, report.overall().agreementRate());
+    }
+
     private Path fixture(String location) {
         try {
             return Path.of(getClass().getClassLoader().getResource(location).toURI());

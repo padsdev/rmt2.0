@@ -11,6 +11,7 @@ import br.com.magnus.detectionandrefactoring.ai.domain.AiAnalysisEntityType;
 import br.com.magnus.detectionandrefactoring.ai.domain.AiAnalysisLanguage;
 import br.com.magnus.detectionandrefactoring.ai.domain.AiAnalysisRequest;
 import br.com.magnus.detectionandrefactoring.ai.domain.AiClientResult;
+import br.com.magnus.detectionandrefactoring.ai.domain.PreparedAiAnalysisRequest;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -57,7 +58,7 @@ class HeuristicCandidateProjectAiAnalyzerTest {
                 "shadow"
         ));
 
-        when(requestFactory.create(any(), any())).thenReturn(Optional.of(request));
+        when(requestFactory.create(any(), any())).thenReturn(Optional.of(new PreparedAiAnalysisRequest(request, "method", "wei")));
         when(client.analyze(request)).thenReturn(result);
 
         var analysis = analyzer.analyze(project);
@@ -72,6 +73,9 @@ class HeuristicCandidateProjectAiAnalyzerTest {
         assertEquals("candidate-1", candidateAnalysis.candidateId());
         assertEquals(request.traceId(), candidateAnalysis.traceId());
         assertNotNull(candidateAnalysis.aiAnalysisTimeMs());
+        assertEquals("void calculate() { if (flag) run(); }", candidateAnalysis.sourceCode());
+        assertEquals("method", candidateAnalysis.sliceType());
+        assertEquals("wei", candidateAnalysis.extractorType());
         var success = assertInstanceOf(AiClientResult.Success.class, candidateAnalysis.result());
         assertEquals(List.of(DesignPattern.STRATEGY), success.analysis().predictedPatterns());
     }

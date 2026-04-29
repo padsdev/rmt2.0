@@ -5,6 +5,7 @@ import br.com.magnus.config.starter.patterns.DesignPattern;
 import br.com.magnus.config.starter.projects.BaseProject;
 import br.com.magnus.config.starter.projects.Project;
 import br.com.magnus.detectionandrefactoring.ai.domain.AiAnalysisEntityType;
+import br.com.magnus.detectionandrefactoring.ai.domain.PreparedAiAnalysisRequest;
 import br.com.magnus.detectionandrefactoring.refactor.methods.weiL.WeiEtAl2014StrategyCandidate;
 import br.com.magnus.detectionandrefactoring.refactor.methods.zaiferisVE.ZafeirisEtAl2016Candidate;
 import com.github.javaparser.JavaParser;
@@ -59,20 +60,12 @@ class AiAnalyzeRequestFactoryTest {
                 classDeclaration.findAll(com.github.javaparser.ast.body.VariableDeclarator.class)
         );
 
-        var request = factory.create(project(), candidate);
+        var preparedRequest = factory.create(project(), candidate);
 
-        assertTrue(request.isPresent());
-        assertEquals(AiAnalysisEntityType.METHOD, request.get().entityType());
-        assertEquals(List.of(DesignPattern.STRATEGY), request.get().patternScope());
-        assertEquals("project-17", request.get().projectId());
-        assertEquals(candidate.getId(), request.get().candidateId());
-        assertEquals("foo", request.get().context().packageName());
-        assertEquals("OrderService", request.get().context().className());
-        assertEquals("execute", request.get().context().methodName());
-        assertEquals(List.of("java.util.List"), request.get().context().imports());
-        assertEquals(Boolean.FALSE, request.get().context().structuralHints().hasSwitch());
-        assertEquals(Boolean.TRUE, request.get().context().structuralHints().hasFactoryCalls());
-        assertEquals(Boolean.TRUE, request.get().context().structuralHints().usesComposition());
+        assertTrue(preparedRequest.isPresent());
+        assertEquals("method", preparedRequest.get().sliceType());
+        assertEquals("wei", preparedRequest.get().extractorType());
+        assertStrategyRequest(preparedRequest.get(), candidate.getId());
     }
 
     @Test
@@ -125,14 +118,31 @@ class AiAnalyzeRequestFactoryTest {
                 .superCall(compilationUnit.findFirst(SuperExpr.class).orElseThrow())
                 .build();
 
-        var request = factory.create(project(), candidate);
+        var preparedRequest = factory.create(project(), candidate);
 
-        assertTrue(request.isPresent());
-        assertEquals(AiAnalysisEntityType.HIERARCHY, request.get().entityType());
-        assertEquals(List.of(DesignPattern.TEMPLATE_METHOD), request.get().patternScope());
-        assertEquals("ParentTemplate", request.get().context().superClass());
-        assertEquals("process", request.get().context().methodName());
-        assertTrue(request.get().sourceCode().contains("class ChildTemplate extends ParentTemplate"));
+        assertTrue(preparedRequest.isPresent());
+        assertEquals("compilation_unit", preparedRequest.get().sliceType());
+        assertEquals("zafeiris", preparedRequest.get().extractorType());
+        assertEquals(AiAnalysisEntityType.HIERARCHY, preparedRequest.get().request().entityType());
+        assertEquals(List.of(DesignPattern.TEMPLATE_METHOD), preparedRequest.get().request().patternScope());
+        assertEquals("ParentTemplate", preparedRequest.get().request().context().superClass());
+        assertEquals("process", preparedRequest.get().request().context().methodName());
+        assertTrue(preparedRequest.get().request().sourceCode().contains("class ChildTemplate extends ParentTemplate"));
+    }
+
+    private void assertStrategyRequest(PreparedAiAnalysisRequest preparedRequest, String candidateId) {
+        var request = preparedRequest.request();
+        assertEquals(AiAnalysisEntityType.METHOD, request.entityType());
+        assertEquals(List.of(DesignPattern.STRATEGY), request.patternScope());
+        assertEquals("project-17", request.projectId());
+        assertEquals(candidateId, request.candidateId());
+        assertEquals("foo", request.context().packageName());
+        assertEquals("OrderService", request.context().className());
+        assertEquals("execute", request.context().methodName());
+        assertEquals(List.of("java.util.List"), request.context().imports());
+        assertEquals(Boolean.FALSE, request.context().structuralHints().hasSwitch());
+        assertEquals(Boolean.TRUE, request.context().structuralHints().hasFactoryCalls());
+        assertEquals(Boolean.TRUE, request.context().structuralHints().usesComposition());
     }
 
     private Project project() {

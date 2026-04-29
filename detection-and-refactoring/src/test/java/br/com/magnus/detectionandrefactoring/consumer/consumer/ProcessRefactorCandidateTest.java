@@ -34,7 +34,6 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
-import static org.mockito.Mockito.atLeastOnce;
 
 @ExtendWith(MockitoExtension.class)
 class ProcessRefactorCandidateTest {
@@ -196,6 +195,54 @@ class ProcessRefactorCandidateTest {
 
         assertTrue(projectAiAnalysisContext.find("id").isEmpty());
         verify(shadowExperimentExporter, atLeastOnce()).export(anyList());
+    }
+
+    @Test
+    @DisplayName("Should mark project as terminal and stop sending when detection fails")
+    void shouldMarkProjectAsTerminalAndStopSendingWhenDetectionFails() {
+        var project = Project.builder()
+                .baseProject(BaseProject.builder()
+                        .id("id")
+                        .build())
+                .build();
+        when(projectsRepository.findById(anyString())).thenReturn(Optional.of(project.getBaseProject()));
+        doThrow(new IllegalStateException("AST extraction failed")).when(detectionMethodsManager).refactor(any());
+
+        assertDoesNotThrow(() -> processRefactorCandidate.process("id"));
+
+        verify(projectUpdater).saveProject(assertArg(savedProject -> {
+            assertNull(savedProject.getRefactorFiles());
+            assertTrue(savedProject.getStatus().contains(ProjectStatus.NO_CANDIDATES));
+        }));
+        verify(projectAiAnalyzer, never()).analyze(any());
+        verify(sendProject, never()).send(anyString());
+        verify(shadowExperimentExporter, never()).export(anyList());
+        assertTrue(projectAiAnalysisContext.find("id").isEmpty());
+    }
+
+    @Test
+    @DisplayName("Should mark project as terminal when project extraction fails")
+    void shouldMarkProjectAsTerminalWhenProjectExtractionFails() {
+        var project = Project.builder()
+                .baseProject(BaseProject.builder()
+                        .id("id")
+                        .build())
+                .build();
+        when(projectsRepository.findById(anyString())).thenReturn(Optional.of(project.getBaseProject()));
+        when(fileExtractor.extract(any())).thenThrow(new IllegalStateException("Project files unavailable"));
+
+        assertDoesNotThrow(() -> processRefactorCandidate.process("id"));
+
+        verify(detectionMethodsManager, never()).refactor(any());
+        verify(projectUpdater).saveProject(assertArg(savedProject -> {
+            assertNull(savedProject.getOriginalContent());
+            assertNull(savedProject.getRefactorFiles());
+            assertTrue(savedProject.getStatus().contains(ProjectStatus.NO_CANDIDATES));
+        }));
+        verify(projectAiAnalyzer, never()).analyze(any());
+        verify(sendProject, never()).send(anyString());
+        verify(shadowExperimentExporter, never()).export(anyList());
+        assertTrue(projectAiAnalysisContext.find("id").isEmpty());
     }
 
 }

@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -154,6 +155,21 @@ class WeiEtAl2014StrategyVerifierTest {
     @DisplayName("Should test retrieveCandidateFrom with valid class")
     public void shouldTestRetrieveCandidateFromWithValidClass() {
         var files = Wei.createJavaFilesStrategy();
+
+        var result = this.weiEtAl2014StrategyVerifier.retrieveCandidatesFrom(files);
+
+        assertEquals(1, result.size());
+    }
+
+    @Test
+    @DisplayName("Should ignore invalid Java files and keep valid Wei candidates")
+    void shouldIgnoreInvalidJavaFilesAndKeepValidWeiCandidates() {
+        var files = new ArrayList<>(Wei.createJavaFilesStrategy());
+        files.add(JavaFile.builder()
+                .name("Broken.java")
+                .path("broken/")
+                .originalClass("public class Broken {")
+                .build());
 
         var result = this.weiEtAl2014StrategyVerifier.retrieveCandidatesFrom(files);
 
