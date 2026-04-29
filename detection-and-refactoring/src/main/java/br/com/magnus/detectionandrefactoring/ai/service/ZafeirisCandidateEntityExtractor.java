@@ -50,7 +50,9 @@ public class ZafeirisCandidateEntityExtractor implements CandidateEntityExtracto
                                 true,
                                 null
                         )
-                )
+                ),
+                "compilation_unit",
+                "zafeiris"
         ));
     }
 

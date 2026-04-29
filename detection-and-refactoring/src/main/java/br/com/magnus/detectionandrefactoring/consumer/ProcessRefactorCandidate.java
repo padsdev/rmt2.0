@@ -42,11 +42,14 @@ public class ProcessRefactorCandidate {
         log.info("Message received id: {}", id);
         var project = retrieveProject(id);
         try {
+            project.setOriginalContent(fileExtractor.extract(project.getBaseProject()));
             detectionMethodsManager.forEach(method -> method.refactor(project));
             var analysis = analyzeWithAi(project);
             projectAiAnalysisContext.store(analysis);
             projectUpdater.saveProject(project);
             send(project);
+        } catch (Exception exception) {
+            finalizeWithTerminalFailure(project, exception);
         } finally {
             exportShadowExperiment(project);
             projectAiAnalysisContext.clear(project.getId());
@@ -89,12 +92,22 @@ public class ProcessRefactorCandidate {
         }
     }
 
+    private void finalizeWithTerminalFailure(Project project, Exception exception) {
+        log.error(
+                "Detection pipeline failed for projectId={} while evaluating candidates terminal_reason=FATAL_DETECTION_ERROR. Marking project as terminal without candidate output.",
+                project.getId(),
+                exception
+        );
+        project.setRefactorFiles(null);
+        project.addStatus(ProjectStatus.NO_CANDIDATES);
+        projectUpdater.saveProject(project);
+    }
+
     private Project retrieveProject(String id) {
         var baseProject = projectsRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Project not found"));
         return Project.builder()
                 .baseProject(baseProject)
-                .originalContent(this.fileExtractor.extract(baseProject))
                 .build();
     }
 }

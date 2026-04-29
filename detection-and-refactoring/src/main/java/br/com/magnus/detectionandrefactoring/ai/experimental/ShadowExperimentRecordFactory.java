@@ -3,6 +3,8 @@ package br.com.magnus.detectionandrefactoring.ai.experimental;
 import br.com.magnus.detectionandrefactoring.ai.domain.AiClientResult;
 import br.com.magnus.detectionandrefactoring.ai.domain.AiFailure;
 import br.com.magnus.detectionandrefactoring.ai.domain.ProjectAiAnalysis;
+import br.com.magnus.detectionandrefactoring.ai.configuration.RmtAiProperties;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.Comparator;
@@ -11,7 +13,10 @@ import java.util.Map;
 import java.util.function.Function;
 
 @Component
+@RequiredArgsConstructor
 public class ShadowExperimentRecordFactory {
+
+    private final RmtAiProperties properties;
 
     public List<ShadowExperimentRecord> create(ProjectAiAnalysis aiAnalysis, ProjectHeuristicObservations heuristicObservations) {
         var heuristicByCandidateId = heuristicObservations.candidates().stream()
@@ -56,7 +61,13 @@ public class ShadowExperimentRecordFactory {
                     aiAnalysis.projectProcessingTimeMs(),
                     aiAnalysis.averageCandidateAnalysisTimeMs(),
                     null,
-                    null
+                    null,
+                    exportedSourceCode(candidateAnalysis),
+                    candidateAnalysis.sliceType(),
+                    contextFilePath(candidateAnalysis),
+                    contextClassName(candidateAnalysis),
+                    contextMethodName(candidateAnalysis),
+                    candidateAnalysis.extractorType()
             );
         }
 
@@ -81,8 +92,30 @@ public class ShadowExperimentRecordFactory {
                 aiAnalysis.projectProcessingTimeMs(),
                 aiAnalysis.averageCandidateAnalysisTimeMs(),
                 failure.type().name(),
-                failure.reason().name()
+                failure.reason().name(),
+                exportedSourceCode(candidateAnalysis),
+                candidateAnalysis.sliceType(),
+                contextFilePath(candidateAnalysis),
+                contextClassName(candidateAnalysis),
+                contextMethodName(candidateAnalysis),
+                candidateAnalysis.extractorType()
         );
+    }
+
+    private String exportedSourceCode(ProjectAiAnalysis.CandidateAnalysis candidateAnalysis) {
+        return properties.isExportSourceCode() ? candidateAnalysis.sourceCode() : null;
+    }
+
+    private String contextFilePath(ProjectAiAnalysis.CandidateAnalysis candidateAnalysis) {
+        return candidateAnalysis.requestContext() == null ? null : candidateAnalysis.requestContext().filePath();
+    }
+
+    private String contextClassName(ProjectAiAnalysis.CandidateAnalysis candidateAnalysis) {
+        return candidateAnalysis.requestContext() == null ? null : candidateAnalysis.requestContext().className();
+    }
+
+    private String contextMethodName(ProjectAiAnalysis.CandidateAnalysis candidateAnalysis) {
+        return candidateAnalysis.requestContext() == null ? null : candidateAnalysis.requestContext().methodName();
     }
 
     private ShadowObservationStatus toStatus(AiFailure failure) {

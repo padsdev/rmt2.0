@@ -110,8 +110,7 @@ public class RefactorProjectImpl implements RefactorProject {
         var project = optProject.get();
         var projectList = project.getStatus().stream().toList();
         if (projectList.contains(ProjectStatus.FINISHED) || projectList.contains(ProjectStatus.NO_CANDIDATES)) {
-            log.info("Project already exists in the database, skipping upload");
-            return true;
+            log.info("Project already exists in terminal state, deleting prior run state before reprocessing");
         }
         projectRepository.deleteById(project.getId());
         return false;

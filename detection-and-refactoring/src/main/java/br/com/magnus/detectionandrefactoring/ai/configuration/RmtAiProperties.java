@@ -18,7 +18,8 @@ public class RmtAiProperties {
     private String analyzePath = "/api/v1/analyze";
     private Duration connectTimeout = Duration.ofMillis(500);
     private Duration readTimeout = Duration.ofSeconds(2);
-    private Path shadowExportPath = Path.of("target/rmt-ai-shadow-observations.jsonl");
+    private Path shadowExportPath;
+    private boolean exportSourceCode = true;
 
     public URI getAnalyzeUri() {
         var path = analyzePath.startsWith("/") ? analyzePath : "/" + analyzePath;

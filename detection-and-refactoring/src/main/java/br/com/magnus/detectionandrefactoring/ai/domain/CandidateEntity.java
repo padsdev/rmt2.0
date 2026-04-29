@@ -8,6 +8,8 @@ public record CandidateEntity(
         AiAnalysisEntityType entityType,
         DesignPattern pattern,
         String sourceCode,
-        AiAnalysisRequest.Context context
+        AiAnalysisRequest.Context context,
+        String sliceType,
+        String extractorType
 ) {
 }

@@ -55,7 +55,9 @@ public class WeiCandidateEntityExtractor implements CandidateEntityExtractor {
                                 usesInheritance(classDeclaration),
                                 usesComposition(weiCandidate)
                         )
-                )
+                ),
+                "method",
+                "wei"
         ));
     }
 

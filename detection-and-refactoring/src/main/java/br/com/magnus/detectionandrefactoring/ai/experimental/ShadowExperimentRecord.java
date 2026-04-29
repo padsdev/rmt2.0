@@ -1,8 +1,8 @@
 package br.com.magnus.detectionandrefactoring.ai.experimental;
 
 import br.com.magnus.config.starter.patterns.DesignPattern;
-import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 
@@ -32,7 +32,13 @@ public record ShadowExperimentRecord(
         Long projectProcessingTimeMs,
         Double averageCandidateAnalysisTimeMs,
         String failureType,
-        String failureReason
+        String failureReason,
+        String sourceCode,
+        String sliceType,
+        String filePath,
+        String className,
+        String methodName,
+        String extractorType
 ) {
 
     public ShadowExperimentRecord(
@@ -70,7 +76,13 @@ public record ShadowExperimentRecord(
                 null,
                 null,
                 failureType,
-                failureReason
+                failureReason,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
         );
     }
 }

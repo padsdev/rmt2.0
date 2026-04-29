@@ -15,6 +15,10 @@ class ServiceRuntime:
     backend_mode: str
     experiment_profile: str
     applied_thresholds: dict[str, float]
+    device: str | None = None
+    max_length: int = 512
+    supported_patterns: list[str] | None = None
+    startup_error: str | None = None
     model_loaded: bool = False
     startup_complete: bool = False
 
@@ -29,10 +33,12 @@ class ServiceRuntime:
     def mark_starting(self) -> None:
         self.startup_complete = False
         self.model_loaded = False
+        self.startup_error = None
 
-    def mark_started(self, *, model_loaded: bool) -> None:
+    def mark_started(self, *, model_loaded: bool, startup_error: str | None = None) -> None:
         self.startup_complete = True
         self.model_loaded = model_loaded
+        self.startup_error = startup_error
 
     def mark_stopped(self) -> None:
         self.startup_complete = False

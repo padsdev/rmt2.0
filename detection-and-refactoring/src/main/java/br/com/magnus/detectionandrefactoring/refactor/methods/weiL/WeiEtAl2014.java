@@ -9,12 +9,14 @@ import br.com.magnus.detectionandrefactoring.refactor.dataExtractions.ast.Abstra
 import br.com.magnus.detectionandrefactoring.refactor.methods.weiL.executors.WeiEtAl2014Executor;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class WeiEtAl2014 implements AbstractSyntaxTreeExtraction {
@@ -27,10 +29,31 @@ public class WeiEtAl2014 implements AbstractSyntaxTreeExtraction {
 
     public List<RefactoringCandidate> extractCandidates(List<JavaFile> javaFiles) {
         this.extractionMethodFactory.build(this).parseAll(javaFiles);
+        var validJavaFiles = javaFiles.stream()
+                .filter(this::hasParsedCompilationUnit)
+                .toList();
         return this.refactoringCandidatesVerifier.stream()
-                .map(f -> f.retrieveCandidatesFrom(javaFiles))
+                .map(f -> f.retrieveCandidatesFrom(validJavaFiles))
                 .flatMap(List::stream)
                 .toList();
+    }
+
+    private boolean hasParsedCompilationUnit(JavaFile file) {
+        if (file.getCompilationUnit() != null) {
+            return true;
+        }
+        log.warn("Skipping Java file without parsed compilation unit path={} skip_reason=NO_COMPILATION_UNIT", resolvePath(file));
+        return false;
+    }
+
+    private String resolvePath(JavaFile file) {
+        if (file == null) {
+            return "<unknown>";
+        }
+        if (file.getPath() == null) {
+            return file.getName();
+        }
+        return file.getPath() + file.getName();
     }
 
     public void refactor(RefactorFiles refactorFiles) {

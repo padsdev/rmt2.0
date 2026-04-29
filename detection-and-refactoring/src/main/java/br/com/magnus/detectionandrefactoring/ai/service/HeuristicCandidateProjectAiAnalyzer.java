@@ -58,23 +58,28 @@ public class HeuristicCandidateProjectAiAnalyzer implements ProjectAiAnalyzer {
         var analyses = new ArrayList<ProjectAiAnalysis.CandidateAnalysis>();
         for (var candidate : refactorFiles.candidates()) {
             try {
-                var request = requestFactory.create(project, candidate);
-                if (request.isEmpty()) {
+                var preparedRequest = requestFactory.create(project, candidate);
+                if (preparedRequest.isEmpty()) {
                     log.debug("Skipping unsupported AI payload assembly for candidate={} pattern={}", candidate.getId(), candidate.getEligiblePattern());
                     continue;
                 }
 
+                var request = preparedRequest.get().request();
                 var analysisStartedAt = System.nanoTime();
-                var response = rmtAiClient.analyze(request.get());
+                var response = rmtAiClient.analyze(request);
                 var aiAnalysisTimeMs = elapsedMillis(analysisStartedAt);
                 analyses.add(new ProjectAiAnalysis.CandidateAnalysis(
-                        request.get().candidateId(),
-                        request.get().entityId(),
-                        request.get().traceId(),
+                        request.candidateId(),
+                        request.entityId(),
+                        request.traceId(),
                         response,
-                        aiAnalysisTimeMs
+                        aiAnalysisTimeMs,
+                        request.sourceCode(),
+                        preparedRequest.get().sliceType(),
+                        request.context(),
+                        preparedRequest.get().extractorType()
                 ));
-                logOutcome(project, request.get(), response, aiAnalysisTimeMs);
+                logOutcome(project, request, response, aiAnalysisTimeMs);
             } catch (RuntimeException exception) {
                 log.warn("Best-effort AI analysis failed for projectId={} candidateId={}: {}",
                         project.getId(), candidate.getId(), exception.getMessage());

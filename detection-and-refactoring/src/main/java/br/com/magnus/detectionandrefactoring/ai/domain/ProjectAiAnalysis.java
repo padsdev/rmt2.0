@@ -25,11 +25,19 @@ public record ProjectAiAnalysis(
             String entityId,
             UUID traceId,
             AiClientResult result,
-            Long aiAnalysisTimeMs
+            Long aiAnalysisTimeMs,
+            String sourceCode,
+            String sliceType,
+            AiAnalysisRequest.Context requestContext,
+            String extractorType
     ) {
 
         public CandidateAnalysis(String candidateId, String entityId, UUID traceId, AiClientResult result) {
-            this(candidateId, entityId, traceId, result, null);
+            this(candidateId, entityId, traceId, result, null, null, null, null, null);
+        }
+
+        public CandidateAnalysis(String candidateId, String entityId, UUID traceId, AiClientResult result, Long aiAnalysisTimeMs) {
+            this(candidateId, entityId, traceId, result, aiAnalysisTimeMs, null, null, null, null);
         }
     }
 }
