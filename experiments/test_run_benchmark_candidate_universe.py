@@ -73,7 +73,8 @@ class RunBenchmarkCandidateUniverseTest(unittest.TestCase):
             f"CANDIDATE_UNIVERSE_CONTAINER_PATH=/shadow-target/runs/{run_id}/candidate-universe.jsonl",
             cfg,
         )
-        self.assertIn("RMT_EXPERIMENT_RUN_ID=", cfg)
+        self.assertIn(f"RMT_AI_EXPERIMENT_RUN_ID={run_id}", cfg)
+        self.assertIn(f"RMT_EXPERIMENT_RUN_ID={run_id}", cfg)
         self.assertFalse(
             LEGACY_CU_SYMLINK.exists(),
             "legacy target/rmt-ai-candidate-universe.jsonl must not be used for candidate-universe routing",
@@ -124,6 +125,8 @@ class RunBenchmarkCandidateUniverseTest(unittest.TestCase):
                 f"CANDIDATE_UNIVERSE_CONTAINER_PATH=/shadow-target/runs/{rid}/candidate-universe.jsonl",
                 cfg,
             )
+            self.assertIn(f"RMT_AI_EXPERIMENT_RUN_ID={rid}", cfg)
+            self.assertIn(f"RMT_EXPERIMENT_RUN_ID={rid}", cfg)
             self.assertFalse(
                 LEGACY_CU_SYMLINK.exists(),
                 msg=f"after run {rid}, legacy symlink path must not exist",

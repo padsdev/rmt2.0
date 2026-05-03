@@ -23,7 +23,7 @@ public class RmtAiProperties {
     /** When set (e.g. {@code RMT_AI_CANDIDATE_UNIVERSE_EXPORT_PATH}), append candidate-universe JSONL records separately from legacy shadow exports. */
     private Path candidateUniverseExportPath;
 
-    /** Optional run identifier echoed into candidate-universe lines ({@code RMT_EXPERIMENT_RUN_ID}); {@code project_commit} remains null unless added by an external benchmark manifest. */
+    /** Optional run identifier echoed into candidate-universe lines; bind via {@code RMT_AI_EXPERIMENT_RUN_ID} (Spring {@code rmt.ai.experiment-run-id}). {@code project_commit} remains null unless added by an external benchmark manifest. */
     private String experimentRunId;
 
     private boolean exportSourceCode = true;

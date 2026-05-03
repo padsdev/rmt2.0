@@ -59,9 +59,10 @@ Options:
   --candidate-universe           When set, creates experiments/runs/<RUN_ID>/candidate-universe/ plus a host
                                  staging file under detection-and-refactoring/target/runs/<RUN_ID>/ (visible in
                                  Docker as /shadow-target/runs/<RUN_ID>/candidate-universe.jsonl). Exports
-                                 RMT_AI_CANDIDATE_UNIVERSE_EXPORT_PATH for the detection container and
-                                 RMT_EXPERIMENT_RUN_ID=<RUN_ID>. Copies staging into the run artifact at the end.
-                                 Works with heuristic-only (AI off) and shadow profiles; omit to keep legacy behaviour.
+                                 RMT_AI_CANDIDATE_UNIVERSE_EXPORT_PATH, RMT_AI_EXPERIMENT_RUN_ID (Spring binding
+                                 rmt.ai.experiment-run-id), and RMT_EXPERIMENT_RUN_ID (alias) for the detection
+                                 container. Copies staging into the run artifact at the end. Works with
+                                 heuristic-only (AI off) and shadow profiles; omit to keep legacy behaviour.
   --compare-with <run-id|path>   Existing benchmark run to compare against after this run completes.
   --skip-eval-build              Reuse existing M5 compiled classes when invoking rmt-shadow-eval.sh
   --dry-run                      Validate inputs and create run layout without uploading projects
@@ -321,11 +322,12 @@ prepare_candidate_universe_export_path() {
   rm -f "$target_mount_dir/rmt-ai-candidate-universe.jsonl"
 
   export RMT_AI_CANDIDATE_UNIVERSE_EXPORT_PATH="/shadow-target/runs/${RUN_ID}/candidate-universe.jsonl"
+  export RMT_AI_EXPERIMENT_RUN_ID="$RUN_ID"
   export RMT_EXPERIMENT_RUN_ID="$RUN_ID"
 
   log_line "Candidate universe official artifact: $CANDIDATE_UNIVERSE_EXPORT_PATH"
   log_line "Candidate universe host staging (detection bind mount): $CANDIDATE_UNIVERSE_HOST_STAGING_PATH"
-  log_line "Candidate universe container path: $RMT_AI_CANDIDATE_UNIVERSE_EXPORT_PATH (RMT_EXPERIMENT_RUN_ID=$RUN_ID)"
+  log_line "Candidate universe container path: $RMT_AI_CANDIDATE_UNIVERSE_EXPORT_PATH (RMT_AI_EXPERIMENT_RUN_ID=$RUN_ID)"
 }
 
 finalize_candidate_universe_artifact() {
@@ -382,6 +384,7 @@ CANDIDATE_UNIVERSE_EXPORT_PATH=$CANDIDATE_UNIVERSE_EXPORT_PATH
 CANDIDATE_UNIVERSE_HOST_STAGING_PATH=$CANDIDATE_UNIVERSE_HOST_STAGING_PATH
 EOF
   if [[ "$CANDIDATE_UNIVERSE" == "true" ]]; then
+    printf 'RMT_AI_EXPERIMENT_RUN_ID=%s\n' "$RUN_ID" >> "$RUN_DIR/config.env"
     printf 'RMT_EXPERIMENT_RUN_ID=%s\n' "$RUN_ID" >> "$RUN_DIR/config.env"
     printf 'CANDIDATE_UNIVERSE_CONTAINER_PATH=%s\n' "/shadow-target/runs/${RUN_ID}/candidate-universe.jsonl" >> "$RUN_DIR/config.env"
   fi
@@ -1066,7 +1069,7 @@ generate_run_readme() {
 - Evaluator build mode: \`$( [[ "$SKIP_EVAL_BUILD" == "true" ]] && printf 'reuse compiled classes' || printf 'compile if needed' )\`
 - Comparison baseline: \`$( [[ -n "$COMPARE_RUN_DIR" ]] && printf '%s' "$COMPARE_RUN_DIR" || printf 'none' )\`
 - Repo HEAD: \`$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || echo unknown)\`
-$( [[ "$CANDIDATE_UNIVERSE" == "true" ]] && printf '%s\n' "- Candidate universe: staging under \`detection-and-refactoring/target/runs/$RUN_ID/\` (container \`/shadow-target/runs/$RUN_ID/candidate-universe.jsonl\`), official copy \`candidate-universe/candidate-universe.jsonl\`; export \`RMT_AI_CANDIDATE_UNIVERSE_EXPORT_PATH\` / \`RMT_EXPERIMENT_RUN_ID\` for detection and recreate the container when those change." )
+$( [[ "$CANDIDATE_UNIVERSE" == "true" ]] && printf '%s\n' "- Candidate universe: staging under \`detection-and-refactoring/target/runs/$RUN_ID/\` (container \`/shadow-target/runs/$RUN_ID/candidate-universe.jsonl\`), official copy \`candidate-universe/candidate-universe.jsonl\`; export \`RMT_AI_CANDIDATE_UNIVERSE_EXPORT_PATH\` and \`RMT_AI_EXPERIMENT_RUN_ID\` (plus optional \`RMT_EXPERIMENT_RUN_ID\` alias) for detection and recreate the container when those change." )
 
 ## Per-Project Results
 
