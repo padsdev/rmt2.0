@@ -28,7 +28,13 @@ public class HeuristicCandidateProjectAiAnalyzer implements ProjectAiAnalyzer {
     public ProjectAiAnalysis analyze(Project project) {
         var projectStartedAt = System.nanoTime();
         var refactorFiles = Optional.ofNullable(project.getRefactorFiles()).orElse(List.of());
+        var heuristicCandidateCount = refactorFiles.stream()
+                .map(RefactorFiles::candidates)
+                .filter(java.util.Objects::nonNull)
+                .mapToInt(List::size)
+                .sum();
         var candidateAnalyses = new ArrayList<ProjectAiAnalysis.CandidateAnalysis>();
+        int submittedToAiCount = 0;
         long totalAiAnalysisTimeMs = 0L;
         for (var files : refactorFiles) {
             var analyses = analyzeRefactorFiles(project, files);
@@ -38,12 +44,25 @@ public class HeuristicCandidateProjectAiAnalyzer implements ProjectAiAnalyzer {
                     .filter(java.util.Objects::nonNull)
                     .mapToLong(Long::longValue)
                     .sum();
+            submittedToAiCount += files.candidates().stream()
+                    .map(candidate -> requestFactory.create(project, candidate))
+                    .filter(Optional::isPresent)
+                    .mapToInt(value -> 1)
+                    .sum();
         }
         var projectProcessingTimeMs = elapsedMillis(projectStartedAt);
         var analyzedCandidateCount = candidateAnalyses.size();
         var averageCandidateAnalysisTimeMs = analyzedCandidateCount == 0
                 ? null
                 : (double) totalAiAnalysisTimeMs / analyzedCandidateCount;
+        log.info(
+                "ai_shadow_diagnostics project_id={} ai_enabled=true heuristic_candidate_count={} ai_entities_submitted={} ai_responses_received={} total_ai_analysis_time_ms={}",
+                project.getId(),
+                heuristicCandidateCount,
+                submittedToAiCount,
+                analyzedCandidateCount,
+                totalAiAnalysisTimeMs
+        );
         return new ProjectAiAnalysis(
                 project.getId(),
                 List.copyOf(candidateAnalyses),

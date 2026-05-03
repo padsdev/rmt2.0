@@ -8,6 +8,9 @@ usage() {
   cat <<EOF
 Usage: ./rmt-shadow-eval-default.sh [output-dir] [--skip-build]
 
+Offline M5 evaluator only.
+This script does not start the Python AI service or generate the shadow JSONL.
+
 Defaults:
   input  -> detection-and-refactoring/target/rmt-ai-shadow-observations.jsonl
   output -> ./target/shadow-eval/<timestamp>

@@ -491,7 +491,272 @@ Registrar o ajuste arquitetural necessário para executar o modo shadow com expo
 - Viabilização do modo shadow ponta a ponta com geração automática do arquivo de exportação no host.
 - Simplificação do uso do pipeline M5, tornando o script `rmt-shadow-eval-default.sh` compatível com a execução completa em contêineres.
 
-# 13. Impacto para o TCC
+# 13. Iteração — M6 Inferência Real com GraphCodeBERT
+
+**Objetivo:**
+- Substituir o backend stub por inferência real utilizando GraphCodeBERT, mantendo compatibilidade com o contrato existente.
+
+**Alterações realizadas:**
+
+- Implementação de backend real baseado em microsoft/graphcodebert-base.
+- Introdução de múltiplos modos de execução:
+- stub
+- graphcodebert
+- Implementação de carregamento de modelo durante o startup do FastAPI.
+- Criação do endpoint GET /api/v1/model/info.
+- Ajuste do endpoint /health para refletir corretamente o estado de carregamento do modelo.
+- Implementação de inferência baseada em embeddings + similaridade de cosseno.
+
+**Problemas encontrados:**
+
+- O modelo não possui cabeça de classificação supervisionada (zero-shot).
+- Necessidade de converter similaridade em decisão binária (threshold).
+- Latência elevada de inferência em CPU.
+- Dependência de ambiente Python compatível (problemas com Python 3.14).
+
+**Soluções aplicadas:**
+
+- Uso de descrição textual dos padrões como base de comparação semântica.
+- Aplicação de thresholds por padrão para decisão multilabel.
+- Introdução de modo degradado quando o modelo não carrega.
+- Uso de ambiente Python 3.12 para compatibilidade com dependências (PyTorch/tokenizers).
+
+**Riscos residuais:**
+
+- Inferência zero-shot limitada semanticamente.
+- Ausência de calibração estatística dos thresholds.
+- Alto custo computacional por candidato.
+
+**Impacto arquitetural:**
+
+- Primeira versão de inferência real integrada ao pipeline.
+- Validação do design de microserviço independente.
+- Base para evolução supervisionada no M7.
+
+# 14. Iteração — M6.1 Grounded Dataset Export
+
+**Objetivo:**
+- Permitir a construção de um dataset supervisionado confiável, preservando o código real utilizado na inferência.
+
+**Alterações realizadas:**
+
+- Inclusão de source_code no export JSONL.
+- Inclusão de metadados:
+- slice_type
+- file_path
+- class_name
+- method_name
+- extractor_type
+- Introdução de controle via configuração (export-source-code).
+
+**Problemas encontrados:**
+
+- Impossibilidade de reconstruir o contexto apenas com IDs.
+- Necessidade de garantir reprodutibilidade do dataset.
+- Heterogeneidade de granularidade (método vs compilation unit).
+
+**Soluções aplicadas:**
+
+- Persistência direta do código utilizado na inferência.
+- Padronização mínima de metadados de contexto.
+- Uso de objeto intermediário (PreparedAiAnalysisRequest).
+
+**Riscos residuais:**
+
+- Aumento significativo do tamanho dos arquivos JSONL.
+- Dataset ainda heterogêneo.
+- Labels ainda baseados na heurística.
+
+**Impacto arquitetural:**
+
+- Viabilização do treinamento supervisionado.
+- Eliminação da necessidade de reconstrução posterior.
+- Base para pipeline de fine-tuning.
+
+# 15. Iteração — M6.2 Correção de Serialização JSONL
+
+**Objetivo:**
+- Garantir que o dataset exportado seja válido e consumível pelo pipeline de treinamento.
+
+**Alterações realizadas:**
+
+- Substituição da serialização manual por Jackson.
+- Validação de cada linha JSON antes da escrita.
+- Correção do pipeline de slicing no runner (remoção de dupla serialização).
+- Testes cobrindo:
+  - aspas
+  - unicode
+  - quebras de linha
+  - literais Java
+
+**Problemas encontrados:**
+
+- JSON inválido devido a escape incorreto de strings.
+- Pipeline quebrando avaliação M5.
+- Perda de reprodutibilidade.
+
+**Soluções aplicadas:**
+
+- Serialização robusta com biblioteca padrão.
+- Validação linha a linha.
+- Correção do runner para manter objetos até escrita final.
+
+**Riscos residuais:**
+
+- Nenhum crítico relacionado à serialização.
+- Persistem apenas limitações de dataset.
+
+**Impacto arquitetural:**
+
+- Dataset totalmente válido para uso experimental.
+- Pipeline M4 → M5 → M7 estabilizado.
+
+# 16. Iteração — M7 Fine-Tuning Supervisionado
+
+**Objetivo:**
+- Treinar uma versão supervisionada do GraphCodeBERT com base no dataset coletado.
+
+**Alterações realizadas:**
+
+- Implementação de pipeline de treino offline:
+- leitura de JSONL
+- validação de schema
+- split por project_id
+- Treinamento multilabel com BCEWithLogitsLoss.
+- Calibração de thresholds.
+- Persistência de artifacts:
+- checkpoint.pt
+- thresholds.json
+- metrics.json
+- Introdução de novo backend:
+  - graphcodebert_finetuned
+
+**Problemas encontrados:**
+
+- Dataset pequeno.
+- Labels derivados da heurística.
+- Ambiguidade multilabel sub-representada.
+- necessidade de balanceamento.
+
+**Soluções aplicadas:**
+
+- Split por projeto para evitar vazamento.
+- Pipeline modular de treino.
+- Separação clara entre inferência e treinamento.
+
+**Riscos residuais:**
+
+- Overfitting potencial.
+- Generalização limitada.
+- Dependência da qualidade da heurística.
+
+**Impacto arquitetural:**
+
+- Evolução de modelo zero-shot para supervisionado.
+- Fechamento do ciclo completo de IA.
+- Base para experimentação científica.
+
+# 17. Iteração — Automação de Benchmark Experimental
+
+**Objetivo:**
+- Executar experimentos de forma automatizada e reprodutível.
+
+**Alterações realizadas:**
+
+- Criação de run-benchmark.sh.
+- Perfis de execução:
+  - heuristic-only
+  - shadow-stub
+  - shadow-real-model
+- Medição de:
+  - tempo total
+  - tempo de IA
+  - overhead
+- Geração de relatórios:
+  - CSV
+  - JSON
+  - comparação entre runs
+
+**Problemas encontrados:**
+
+- Contaminação entre execuções (arquivos compartilhados).
+- dificuldade de reprodutibilidade.
+- necessidade de isolamento por execução.
+
+**Soluções aplicadas:**
+
+- Introdução de run-id.
+- isolamento de JSONL por execução.
+- lock para evitar concorrência.
+- registro de configuração por run.
+
+**Impacto arquitetural:**
+
+- Pipeline experimental completamente automatizado.
+- Alta reprodutibilidade.
+- Preparação para análise estatística.
+
+#18. Iteração — Resultados Experimentais Finais
+
+**Objetivo:**
+- Avaliar o desempenho da IA em comparação com a heurística.
+
+**Resultados obtidos:**
+
+- agreement_rate: 1.0
+- observações válidas: 46
+- precisão: 1.0
+- revocação: 1.0
+- F1: 1.0
+
+**Comparação de performance:**
+
+- Configuração	Overhead
+- Zero-shot	+15.70%
+- Fine-tuned	+13.26%
+
+**Interpretação:**
+
+- IA reproduziu completamente a heurística.
+- comportamento conservador validado.
+- fine-tuning reduziu custo computacional.
+
+**Limitações:**
+
+- dataset pequeno
+- ausência de ground truth humano
+- avaliação restrita ao espaço heurístico
+- labels derivados da heurística
+
+**Impacto científico:**
+
+- validação da arquitetura proposta
+- evidência de viabilidade de integração IA + refatoração
+- base para evolução futura com dados reais
+
+# 18. Conclusão do Desenvolvimento
+
+**O desenvolvimento atingiu:**
+
+- integração completa IA ↔ RMT
+- pipeline experimental reprodutível
+- modelo zero-shot e fine-tuned
+- avaliação quantitativa consistente
+
+**O sistema evoluiu para:**
+
+heurística pura → observação → dataset → modelo → avaliação
+
+# 19. Considerações Finais para o TCC
+
+**O trabalho demonstra:**
+
+- viabilidade de uso de IA em refatoração
+- importância de integração incremental
+- necessidade de validação experimental rigorosa
+- limitações de avaliação sem ground truth
+-----------------------------------------------------------------------------
+# Impacto para o TCC
 
 Este desenvolvimento contribui diretamente para:
 
@@ -509,7 +774,7 @@ Este desenvolvimento contribui diretamente para:
 
 ---
 
-# 14. Iterações Futuras
+# xx. Iterações Futuras
 
 ## Modelo para novas entradas
 

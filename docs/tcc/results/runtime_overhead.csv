@@ -1,0 +1,3 @@
+run_id,baseline_run_id,baseline_total_duration_ms,comparison_total_duration_ms,duration_delta_ms,overhead_percent,total_ai_duration_ms
+tcc-isolated-shadow-zeroshot-fixed-2026-05-03-04,tcc-isolated-heuristic-only-2026-05-03-02,235912,338702,102790,43.571332,40799
+tcc-isolated-shadow-finetuned-2026-05-03-01,tcc-isolated-heuristic-only-2026-05-03-02,235912,260589,24677,10.460256,28997

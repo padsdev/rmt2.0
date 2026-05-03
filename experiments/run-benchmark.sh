@@ -251,6 +251,7 @@ release_shadow_export_lock() {
 prepare_shadow_export_path() {
   local export_parent
   local legacy_parent
+  local link_target
 
   if ! profile_requires_ai "$EXPERIMENT_PROFILE"; then
     return 0
@@ -276,9 +277,15 @@ prepare_shadow_export_path() {
   log_line "Using shadow export path: $SHADOW_EXPORT_PATH"
 
   rm -f "$LEGACY_SHARED_EXPORT_PATH"
-  ln -s "$SHADOW_EXPORT_PATH" "$LEGACY_SHARED_EXPORT_PATH"
+  if [[ "$export_parent" == "$legacy_parent" ]]; then
+    # Keep the legacy compatibility link container-safe by avoiding host-absolute targets.
+    link_target="$(basename "$SHADOW_EXPORT_PATH")"
+  else
+    link_target="$SHADOW_EXPORT_PATH"
+  fi
+  ln -s "$link_target" "$LEGACY_SHARED_EXPORT_PATH"
   LEGACY_SHARED_EXPORT_LINKED="true"
-  log_line "Linked legacy shadow export path to run-scoped file: $LEGACY_SHARED_EXPORT_PATH -> $SHADOW_EXPORT_PATH"
+  log_line "Linked legacy shadow export path to run-scoped file: $LEGACY_SHARED_EXPORT_PATH -> $link_target"
 }
 
 write_run_configuration() {
@@ -432,7 +439,7 @@ slice_project_jsonl() {
     return 1
   fi
 
-  if ! jq -csc --arg project_id "$upload_id" '
+  if ! jq -c -s --arg project_id "$upload_id" '
     def record_key($record):
       if (($record.trace_id // "") != "" and ($record.entity_id // "") != "") then
         ($record.trace_id + "\u001f" + $record.entity_id)

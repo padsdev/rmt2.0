@@ -50,8 +50,18 @@ public class JsonlShadowExperimentExporter implements ShadowExperimentExporter {
                     StandardOpenOption.CREATE,
                     StandardOpenOption.APPEND
             );
+            log.info(
+                    "ai_shadow_export_written shadow_export_path={} shadow_records_written={}",
+                    shadowExportPath,
+                    records.size()
+            );
         } catch (IOException exception) {
-            log.warn("Failed to export AI shadow experiment records to {}: {}", shadowExportPath, exception.getMessage());
+            log.warn(
+                    "Failed to export AI shadow experiment records to {}: {} ({})",
+                    shadowExportPath,
+                    exception.getMessage(),
+                    exception.getClass().getSimpleName()
+            );
         }
     }
 

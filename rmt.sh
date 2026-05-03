@@ -21,6 +21,44 @@ Examples:
 EOF
 }
 
+resolve_ai_python() {
+  local service_dir="$SCRIPT_DIR/rmt-ai-module/rmt-ai-service"
+
+  if [[ -x "$service_dir/.venv-py312/bin/python" ]]; then
+    printf '%s' "$service_dir/.venv-py312/bin/python"
+    return
+  fi
+
+  if [[ -x "$service_dir/.venv/bin/python" ]]; then
+    printf '%s' "$service_dir/.venv/bin/python"
+    return
+  fi
+
+  if command -v python3 >/dev/null 2>&1; then
+    printf '%s' "python3"
+    return
+  fi
+
+  printf '%s' "python"
+}
+
+print_dev_commands() {
+  local ai_python
+  local shadow_export_path
+  ai_python="$(resolve_ai_python)"
+  shadow_export_path="$SCRIPT_DIR/detection-and-refactoring/target/manual-shadow.jsonl"
+
+  echo "Infrastructure is up. Start each service with:"
+  echo "  mvn spring-boot:run -pl project-sync-bff"
+  echo "  RMT_AI_ENABLED=true RMT_AI_SHADOW_EXPORT_PATH=\"$shadow_export_path\" mvn spring-boot:run -pl detection-and-refactoring"
+  echo "  mvn spring-boot:run -pl metrics-calculator"
+  echo "  (cd \"$SCRIPT_DIR/rmt-ai-module/rmt-ai-service\" && \"$ai_python\" -m uvicorn app.main:app --host 0.0.0.0 --port 8000)"
+  echo ""
+  echo "AI service env is taken from your current shell. Set RMT_AI_BACKEND_MODE, RMT_AI_DEVICE_PREFERENCE,"
+  echo "RMT_AI_FINETUNED_ARTIFACT_PATH, RMT_AI_EXPERIMENT_PROFILE, and RMT_AI_READ_TIMEOUT before starting"
+  echo "the services when you want a non-default backend or slower real-model inference."
+}
+
 build() {
   echo "==> Building all modules..."
   mvn clean install -f "$SCRIPT_DIR/pom.xml"
@@ -89,10 +127,7 @@ case "${1:-all}" in
     build
     infra
     echo ""
-    echo "Infrastructure is up. Start each service with:"
-    echo "  mvn spring-boot:run -pl project-sync-bff"
-    echo "  mvn spring-boot:run -pl detection-and-refactoring"
-    echo "  mvn spring-boot:run -pl metrics-calculator"
+    print_dev_commands
     ;;
   all)
     build

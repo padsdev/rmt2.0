@@ -1,0 +1,9 @@
+dimension,zeroshot,finetuned,difference
+m4_total_records,46,46,0
+m4_duplicates,0,0,0
+m5_tp_fp_fn,"46/0/0","46/0/0",identical
+m5_valid_observations,46,46,0
+m5_agreement_rate,1.0,1.0,identical
+m5_pattern_metrics,"STRATEGY:22/0/0;TEMPLATE_METHOD:24/0/0","STRATEGY:22/0/0;TEMPLATE_METHOD:24/0/0",identical
+runtime_overhead_percent,43.571332,10.460256,-33.111076
+comparison_total_ai_duration_ms,40799,28997,-11802

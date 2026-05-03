@@ -39,8 +39,6 @@ services:
     build:
       context: ../../rmt-ai-module/rmt-ai-service
       dockerfile: Dockerfile
-    ports:
-      - "8000:8000"
     environment:
       - RMT_AI_BACKEND_MODE=${RMT_AI_BACKEND_MODE:-stub}
       - RMT_AI_GRAPHCODEBERT_MODEL_NAME=${RMT_AI_GRAPHCODEBERT_MODEL_NAME:-microsoft/graphcodebert-base}
@@ -106,3 +104,8 @@ services:
     depends_on:
       - redis
       - localstack
+
+networks:
+  default:
+    external: true
+    name: local_default

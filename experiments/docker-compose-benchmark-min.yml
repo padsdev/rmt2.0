@@ -1,0 +1,44 @@
+version: "3.8"
+
+services:
+  ai-service:
+    image: magnus/rmt-ai-service
+    build:
+      context: ../rmt-ai-module/rmt-ai-service
+      dockerfile: Dockerfile
+    environment:
+      - RMT_AI_BACKEND_MODE=${RMT_AI_BACKEND_MODE:-stub}
+      - RMT_AI_GRAPHCODEBERT_MODEL_NAME=${RMT_AI_GRAPHCODEBERT_MODEL_NAME:-microsoft/graphcodebert-base}
+      - RMT_AI_FINETUNED_ARTIFACT_PATH=${RMT_AI_FINETUNED_ARTIFACT_PATH:-}
+      - RMT_AI_MODEL_MAX_LENGTH=${RMT_AI_MODEL_MAX_LENGTH:-512}
+      - RMT_AI_DEVICE_PREFERENCE=${RMT_AI_DEVICE_PREFERENCE:-auto}
+      - RMT_AI_EXPERIMENT_PROFILE=${RMT_AI_EXPERIMENT_PROFILE:-default}
+      - RMT_AI_THRESHOLD_TEMPLATE_METHOD=${RMT_AI_THRESHOLD_TEMPLATE_METHOD:-}
+      - RMT_AI_THRESHOLD_STRATEGY=${RMT_AI_THRESHOLD_STRATEGY:-}
+      - RMT_AI_THRESHOLD_FACTORY_METHOD=${RMT_AI_THRESHOLD_FACTORY_METHOD:-}
+    volumes:
+      - ../:/home/pads/Documents/rmt2.0
+      - ../experiments/artifacts:/artifacts:ro
+
+  detection:
+    image: magnus/detection
+    build:
+      context: ../infra/local
+      dockerfile: Dockerfile
+    environment:
+      - AWS_ACCESS_KEY_ID=fakeAccessKeyId
+      - AWS_SECRET_ACCESS_KEY=fakeSecretAccessKey
+      - REDIS_HOST=redis
+      - LOCAL_STACK_HOST=http://localstack:4566
+      - RMT_AI_ENABLED=true
+      - RMT_AI_BASE_URL=http://ai-service:8000
+      - RMT_AI_CONNECT_TIMEOUT=${RMT_AI_CONNECT_TIMEOUT:-500ms}
+      - RMT_AI_READ_TIMEOUT=${RMT_AI_READ_TIMEOUT:-2s}
+      - RMT_AI_SHADOW_EXPORT_PATH=/shadow-target/rmt-ai-shadow-observations.jsonl
+    volumes:
+      - ../detection-and-refactoring/target:/shadow-target
+
+networks:
+  default:
+    external: true
+    name: local_default

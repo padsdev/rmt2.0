@@ -3,6 +3,7 @@ package br.com.magnus.detectionandrefactoring.consumer;
 import br.com.magnus.detectionandrefactoring.ai.domain.ProjectAiAnalysis;
 import br.com.magnus.detectionandrefactoring.ai.experimental.ProjectHeuristicObservationsFactory;
 import br.com.magnus.detectionandrefactoring.ai.experimental.ShadowExperimentExporter;
+import br.com.magnus.detectionandrefactoring.ai.experimental.ShadowExperimentRecord;
 import br.com.magnus.detectionandrefactoring.ai.experimental.ShadowExperimentRecordFactory;
 import br.com.magnus.detectionandrefactoring.ai.service.ProjectAiAnalysisContext;
 import br.com.magnus.detectionandrefactoring.ai.service.ProjectAiAnalyzer;
@@ -85,6 +86,19 @@ public class ProcessRefactorCandidate {
             projectAiAnalysisContext.find(project.getId()).ifPresent(aiAnalysis -> {
                 var heuristicObservations = projectHeuristicObservationsFactory.create(project);
                 var records = shadowExperimentRecordFactory.create(aiAnalysis, heuristicObservations);
+                var experimentProfiles = records.stream()
+                        .map(ShadowExperimentRecord::experimentProfile)
+                        .filter(Objects::nonNull)
+                        .distinct()
+                        .toList();
+                log.info(
+                        "ai_shadow_export_diagnostics project_id={} heuristic_candidates={} ai_responses_received={} shadow_records_ready={} experiment_profiles={}",
+                        project.getId(),
+                        heuristicObservations.candidates().size(),
+                        aiAnalysis.candidateAnalyses().size(),
+                        records.size(),
+                        experimentProfiles
+                );
                 shadowExperimentExporter.export(records);
             });
         } catch (RuntimeException exception) {
