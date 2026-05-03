@@ -1,0 +1,1 @@
+{"schema_version":"semantic-only-prediction/v1","run_id":"eval-run","trace_id":"trace-fn","project_id":"proj-x","entity_id":"e-fn","pattern":"TEMPLATE_METHOD","backend":"stub","predicted_label":0,"score":0.1,"threshold":0.5,"status":"OK","latency_ms":0}

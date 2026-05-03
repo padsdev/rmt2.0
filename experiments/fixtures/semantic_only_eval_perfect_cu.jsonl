@@ -1,0 +1,2 @@
+{"schema_version":"candidate-universe-v1","run_id":"eval-run","project_id":"proj-x","entity_id":"e-a","trace_id":"trace-a","pattern":"STRATEGY","heuristic_label":1}
+{"schema_version":"candidate-universe-v1","run_id":"eval-run","project_id":"proj-x","entity_id":"e-b","trace_id":"trace-b","pattern":"STRATEGY","heuristic_label":1}

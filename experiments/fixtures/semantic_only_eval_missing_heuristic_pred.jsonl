@@ -1,0 +1,1 @@
+{"schema_version":"semantic-only-prediction/v1","run_id":"eval-run","trace_id":"trace-nh","project_id":"proj-x","entity_id":"e-nh","pattern":"STRATEGY","backend":"stub","predicted_label":0,"score":0.2,"threshold":0.5,"status":"OK","latency_ms":0}
