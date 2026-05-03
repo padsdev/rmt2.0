@@ -35,6 +35,8 @@ OVERALL_EXIT_CODE=0
 FINAL_README=""
 SHADOW_EXPORT_LOCK_DIR=""
 LEGACY_SHARED_EXPORT_LINKED="false"
+CANDIDATE_UNIVERSE="false"
+CANDIDATE_UNIVERSE_EXPORT_PATH=""
 
 usage() {
   cat <<EOF
@@ -53,6 +55,10 @@ Options:
   --experiment-profile <value>   Benchmark profile: heuristic-only, shadow-stub, shadow-real-model,
                                  shadow-zeroshot, or shadow-finetuned.
                                  Default: shadow-stub
+  --candidate-universe           When set, creates experiments/runs/<RUN_ID>/candidate-universe/ and exports
+                                 RMT_AI_CANDIDATE_UNIVERSE_EXPORT_PATH to candidate-universe.jsonl (truncated
+                                 at run start). Also exports RMT_EXPERIMENT_RUN_ID=<RUN_ID> for JSONL metadata.
+                                 Works with heuristic-only (AI off) and shadow profiles; omit to keep legacy behaviour.
   --compare-with <run-id|path>   Existing benchmark run to compare against after this run completes.
   --skip-eval-build              Reuse existing M5 compiled classes when invoking rmt-shadow-eval.sh
   --dry-run                      Validate inputs and create run layout without uploading projects
@@ -62,6 +68,7 @@ Examples:
   ./experiments/run-benchmark.sh --dry-run
   ./experiments/run-benchmark.sh --run-id 20260427-full-benchmark
   ./experiments/run-benchmark.sh --experiment-profile heuristic-only --run-id tcc-heuristic-only-01
+  ./experiments/run-benchmark.sh --experiment-profile heuristic-only --candidate-universe --run-id tcc-heuristic-cu-01
   ./experiments/run-benchmark.sh --experiment-profile shadow-stub --compare-with tcc-heuristic-only-01 --run-id tcc-shadow-stub-01
   ./experiments/run-benchmark.sh --poll-interval 10 --project-timeout 7200
 EOF
@@ -288,6 +295,22 @@ prepare_shadow_export_path() {
   log_line "Linked legacy shadow export path to run-scoped file: $LEGACY_SHARED_EXPORT_PATH -> $link_target"
 }
 
+prepare_candidate_universe_export_path() {
+  if [[ "$CANDIDATE_UNIVERSE" != "true" ]]; then
+    return 0
+  fi
+
+  mkdir -p "$RUN_DIR/candidate-universe"
+  CANDIDATE_UNIVERSE_EXPORT_PATH="$(cd "$RUN_DIR/candidate-universe" && pwd)/candidate-universe.jsonl"
+  rm -f "$CANDIDATE_UNIVERSE_EXPORT_PATH"
+  : > "$CANDIDATE_UNIVERSE_EXPORT_PATH"
+
+  export RMT_AI_CANDIDATE_UNIVERSE_EXPORT_PATH="$CANDIDATE_UNIVERSE_EXPORT_PATH"
+  export RMT_EXPERIMENT_RUN_ID="$RUN_ID"
+
+  log_line "Candidate universe export path: $CANDIDATE_UNIVERSE_EXPORT_PATH (RMT_EXPERIMENT_RUN_ID=$RUN_ID)"
+}
+
 write_run_configuration() {
   local manifest_sha
   manifest_sha="$(sha256sum "$MANIFEST" | awk '{print $1}')"
@@ -310,7 +333,12 @@ EXPERIMENT_PROFILE=$EXPERIMENT_PROFILE
 COMPARE_WITH=$COMPARE_WITH
 DRY_RUN=$DRY_RUN
 SKIP_EVAL_BUILD=$SKIP_EVAL_BUILD
+CANDIDATE_UNIVERSE=$CANDIDATE_UNIVERSE
+CANDIDATE_UNIVERSE_EXPORT_PATH=$CANDIDATE_UNIVERSE_EXPORT_PATH
 EOF
+  if [[ "$CANDIDATE_UNIVERSE" == "true" ]]; then
+    printf 'RMT_EXPERIMENT_RUN_ID=%s\n' "$RUN_ID" >> "$RUN_DIR/config.env"
+  fi
 }
 
 capture_health_snapshots() {
@@ -992,6 +1020,7 @@ generate_run_readme() {
 - Evaluator build mode: \`$( [[ "$SKIP_EVAL_BUILD" == "true" ]] && printf 'reuse compiled classes' || printf 'compile if needed' )\`
 - Comparison baseline: \`$( [[ -n "$COMPARE_RUN_DIR" ]] && printf '%s' "$COMPARE_RUN_DIR" || printf 'none' )\`
 - Repo HEAD: \`$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || echo unknown)\`
+$( [[ "$CANDIDATE_UNIVERSE" == "true" ]] && printf '%s\n' "- Candidate universe JSONL: \`candidate-universe/candidate-universe.jsonl\` (also \`RMT_AI_CANDIDATE_UNIVERSE_EXPORT_PATH\` / \`RMT_EXPERIMENT_RUN_ID\` in the shell running this script — restart or configure the detection service with the same paths if it does not inherit this environment)" )
 
 ## Per-Project Results
 
@@ -1016,6 +1045,12 @@ EOF
 - Per-project M4 JSONL exports keyed by runtime \`project_id\`: \`shadow-jsonl/*.jsonl\`
 - Evaluator log: \`evaluation.log\`
 EOF
+
+    if [[ "$CANDIDATE_UNIVERSE" == "true" ]]; then
+      cat <<EOF
+- Candidate universe JSONL (run-scoped): \`candidate-universe/candidate-universe.jsonl\`
+EOF
+    fi
 
     if [[ -f "$RUN_DIR/evaluation/shadow-evaluation-summary.json" ]]; then
       cat <<EOF
@@ -1105,6 +1140,10 @@ parse_args() {
         EXPERIMENT_PROFILE="$2"
         shift 2
         ;;
+      --candidate-universe)
+        CANDIDATE_UNIVERSE="true"
+        shift
+        ;;
       --compare-with)
         [[ $# -ge 2 ]] || fail "Missing value for --compare-with"
         COMPARE_WITH="$2"
@@ -1144,6 +1183,7 @@ main() {
   validate_manifest
   prepare_run_layout
   prepare_shadow_export_path
+  prepare_candidate_universe_export_path
   resolve_compare_run_dir
   write_run_configuration
 
@@ -1153,6 +1193,9 @@ main() {
   log_line "Experiment profile: $EXPERIMENT_PROFILE"
   if profile_requires_ai "$EXPERIMENT_PROFILE"; then
     log_line "Shadow export path initialized at $SHADOW_EXPORT_PATH"
+  fi
+  if [[ "$CANDIDATE_UNIVERSE" == "true" ]]; then
+    log_line "Candidate universe export enabled at $CANDIDATE_UNIVERSE_EXPORT_PATH"
   fi
 
   capture_health_snapshots

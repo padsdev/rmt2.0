@@ -26,6 +26,8 @@ Each record enumerates a method inspected under every supported heuristic patter
 
 Optional metadata: set `RMT_EXPERIMENT_RUN_ID` (`rmt.ai.experiment-run-id`) so append-only runs carrying the same filesystem path remain distinguishable. `project_commit` is intentionally omitted (null); benchmark runners should capture commit hashes in manifests or tooling when needed.
 
+[`run-benchmark.sh`](run-benchmark.sh) accepts `--candidate-universe`: when passed, it creates `experiments/runs/<run-id>/candidate-universe/`, truncates `candidate-universe.jsonl` at run start, and exports `RMT_AI_CANDIDATE_UNIVERSE_EXPORT_PATH` plus `RMT_EXPERIMENT_RUN_ID=<run-id>` in the shell that runs the script (and records them in `config.env`). Use this with `heuristic-only` so the detection service can append candidate-universe rows without enabling AI. If detection runs in a separate process or container, give it the same environment variables or a bind mount to that path (see `config.env` after each run).
+
 Later evaluation steps can ingest this corpus to quantify true negatives, specificity, Matthews correlation, balanced accuracy, future threshold sweeps, and ranking-style metrics without perturbing refactoring decisions.
 
 ### Offline candidate-universe evaluation (M5 extension)
@@ -71,7 +73,7 @@ If you manage the detection service manually, set `RMT_AI_SHADOW_EXPORT_PATH` be
 
 The runner accepts `--experiment-profile` with these values:
 
-- `heuristic-only`: AI disabled. The runner still measures end-to-end project duration, but skips AI health checks and M5 shadow evaluation.
+- `heuristic-only`: AI disabled. The runner still measures end-to-end project duration, but skips AI health checks and M5 shadow evaluation. Pass `--candidate-universe` to also provision `experiments/runs/<run-id>/candidate-universe/candidate-universe.jsonl` and export `RMT_AI_CANDIDATE_UNIVERSE_EXPORT_PATH` / `RMT_EXPERIMENT_RUN_ID` for the detection service (same pattern as shadow export path wiring).
 - `shadow-stub`: AI enabled in shadow mode using the current stub backend. This is the default runner profile for backward compatibility.
 - `shadow-real-model`: reserved for future real GraphCodeBERT inference. The runner treats it like a shadow-mode profile for reporting purposes, but it does not enable or configure the model by itself.
 - `shadow-zeroshot`: shadow-mode alias intended for runs where the AI service backend is configured as `graphcodebert`.
@@ -91,6 +93,12 @@ Dry run with an explicit benchmark profile:
 
 ```bash
 ./experiments/run-benchmark.sh --dry-run --experiment-profile heuristic-only --run-id dry-run-heuristic-only
+```
+
+Heuristic-only dry run with candidate-universe export paths prepared:
+
+```bash
+./experiments/run-benchmark.sh --dry-run --experiment-profile heuristic-only --candidate-universe --run-id dry-run-heuristic-cu
 ```
 
 Full benchmark:
@@ -182,6 +190,7 @@ Each execution creates `experiments/runs/<run-id>/` with:
 - `inputs/benchmark-projects.csv`: manifest snapshot used by that run.
 - `logs/<project_id>.log`: per-project upload and polling logs.
 - `shadow-jsonl/<runtime-upload-id>.jsonl`: per-project M4 export filtered by runtime `project_id` and deduplicated by `trace_id + entity_id`.
+- `candidate-universe/candidate-universe.jsonl` (only when `./experiments/run-benchmark.sh` is invoked with `--candidate-universe`): run-scoped append target for `candidate-universe-v1` JSONL from the detection service.
 - `../detection-and-refactoring/target/<run-id>-shadow.jsonl`: run-scoped raw shadow export stream written by the detection service for that benchmark execution.
 - `shadow-aggregate.jsonl`: aggregate M4 export rebuilt as the union of all per-project JSONL files.
 - `shadow-jsonl-report.txt`: validation report with total records, unique records, unique trace IDs, and duplication rate.
