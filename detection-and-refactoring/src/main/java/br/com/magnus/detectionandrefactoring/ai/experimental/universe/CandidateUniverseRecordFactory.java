@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Component
@@ -185,7 +186,9 @@ public class CandidateUniverseRecordFactory {
         List<String> aiPredictedLabelStrings = List.of();
         Double thresholdValue = null;
         String observationStatus;
-        var traceFormatted = aiAnalysisRow == null ? null : aiAnalysisRow.traceId().toString();
+        var traceFormatted = aiAnalysisRow == null
+                ? syntheticTraceId(runId, entityKeyDigest, patternLabel)
+                : aiAnalysisRow.traceId().toString();
 
         if (aiAnalysisRow == null) {
             observationStatus = NOT_EVALUATED_BY_AI;
@@ -308,6 +311,19 @@ public class CandidateUniverseRecordFactory {
                 + UNIT_SEPARATOR + methodSignature
                 + UNIT_SEPARATOR + patternName;
         return sha256Hex(raw);
+    }
+
+    /**
+     * Deterministic name-based UUID (Java type 3 / MD5, via {@link UUID#nameUUIDFromBytes(byte[])}) used as
+     * {@code trace_id} for rows that were not evaluated by the AI. The seed combines {@code run_id} (execution
+     * isolation) with {@code entity_key_digest} + {@code pattern} (entity identity), so two runs over the same
+     * entity yield distinct {@code trace_id}s while a single run is reproducible.
+     */
+    private static String syntheticTraceId(String runId, String entityKeyDigest, String patternName) {
+        var seed = (runId == null ? "" : runId)
+                + UNIT_SEPARATOR + entityKeyDigest
+                + UNIT_SEPARATOR + patternName;
+        return UUID.nameUUIDFromBytes(seed.getBytes(StandardCharsets.UTF_8)).toString();
     }
 
     private static String normalizedTriple(String legacyEntityId) {

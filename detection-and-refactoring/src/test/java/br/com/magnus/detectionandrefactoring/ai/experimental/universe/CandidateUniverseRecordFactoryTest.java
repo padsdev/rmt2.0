@@ -12,6 +12,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -146,6 +147,76 @@ class CandidateUniverseRecordFactoryTest {
                 .orElseThrow();
 
         assertFalse(factoryForStrategyCandidate.hardNegativeReasons().contains("CONTAINS_SWITCH"));
+    }
+
+    @Test
+    void trace_id_is_present_when_no_ai_analysis() {
+        var sourceFile = javaFile("src/main/java/demo/", "Mixed.java", MIXED_JAVA);
+        var project = syntheticProject(sourceFile);
+        var heuristics = new ProjectHeuristicObservations(project.getId(), List.of());
+
+        var rows = factory.create(project, heuristics, null);
+
+        assertFalse(rows.isEmpty());
+        for (var row : rows) {
+            assertNotNull(row.traceId(), "trace_id must be populated even when aiAnalysisRow is null");
+            assertFalse(row.traceId().isBlank(), "trace_id must not be blank");
+            assertDoesNotThrow(() -> UUID.fromString(row.traceId()),
+                    "trace_id should be a deterministic name-based UUID via UUID.nameUUIDFromBytes");
+        }
+    }
+
+    @Test
+    void trace_id_is_deterministic_for_same_inputs_when_no_ai_analysis() {
+        var sourceFile = javaFile("src/main/java/demo/", "Mixed.java", MIXED_JAVA);
+        var project = syntheticProject(sourceFile);
+        var heuristics = new ProjectHeuristicObservations(project.getId(), List.of());
+
+        var first = factory.create(project, heuristics, null).stream()
+                .collect(Collectors.toMap(CandidateUniverseRecord::entityKey, CandidateUniverseRecord::traceId));
+        var second = factory.create(project, heuristics, null).stream()
+                .collect(Collectors.toMap(CandidateUniverseRecord::entityKey, CandidateUniverseRecord::traceId));
+
+        assertEquals(first, second, "trace_id must be deterministic for the same (run_id, entity_key, pattern)");
+    }
+
+    @Test
+    void trace_id_changes_when_run_id_changes() {
+        var sourceFile = javaFile("src/main/java/demo/", "Mixed.java", MIXED_JAVA);
+        var project = syntheticProject(sourceFile);
+        var heuristics = new ProjectHeuristicObservations(project.getId(), List.of());
+
+        properties.setExperimentRunId("run-A");
+        var traceByEntityKeyA = factory.create(project, heuristics, null).stream()
+                .collect(Collectors.toMap(CandidateUniverseRecord::entityKey, CandidateUniverseRecord::traceId));
+
+        properties.setExperimentRunId("run-B");
+        var traceByEntityKeyB = factory.create(project, heuristics, null).stream()
+                .collect(Collectors.toMap(CandidateUniverseRecord::entityKey, CandidateUniverseRecord::traceId));
+
+        assertEquals(traceByEntityKeyA.keySet(), traceByEntityKeyB.keySet(), "entity_key remains stable across runs");
+        for (var entityKey : traceByEntityKeyA.keySet()) {
+            assertNotEquals(traceByEntityKeyA.get(entityKey), traceByEntityKeyB.get(entityKey),
+                    "trace_id must differ between runs even for the same entity");
+        }
+    }
+
+    @Test
+    void trace_id_is_distinct_across_entities_and_patterns_within_a_run() {
+        var sourceFile = javaFile("src/main/java/demo/", "Mixed.java", MIXED_JAVA);
+        var project = syntheticProject(sourceFile);
+        var heuristics = new ProjectHeuristicObservations(project.getId(), List.of());
+
+        var rows = factory.create(project, heuristics, null);
+        var distinctTraces = rows.stream().map(CandidateUniverseRecord::traceId).distinct().count();
+
+        assertEquals(rows.size(), distinctTraces,
+                "every (entity, pattern) combination within a run must receive a unique trace_id");
+
+        for (var row : rows) {
+            assertNotEquals(row.entityKey(), row.traceId(),
+                    "trace_id (per-observation) must remain distinct from entity_key_digest (per-entity)");
+        }
     }
 
     @Test
