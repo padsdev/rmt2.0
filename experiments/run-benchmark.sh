@@ -309,6 +309,25 @@ prepare_candidate_universe_export_path() {
   export RMT_EXPERIMENT_RUN_ID="$RUN_ID"
 
   log_line "Candidate universe export path: $CANDIDATE_UNIVERSE_EXPORT_PATH (RMT_EXPERIMENT_RUN_ID=$RUN_ID)"
+
+  # Docker/localstack stacks mount detection-and-refactoring/target as /shadow-target and keep
+  # RMT_AI_CANDIDATE_UNIVERSE_EXPORT_PATH=/shadow-target/rmt-ai-candidate-universe.jsonl inside the container.
+  # Replace the host symlink atomically so the JVM writes into the current run artifact (no stale target mixing).
+  local target_mount_dir="$REPO_ROOT/detection-and-refactoring/target"
+  local legacy_candidate_link="$target_mount_dir/rmt-ai-candidate-universe.jsonl"
+  mkdir -p "$target_mount_dir"
+  rm -f "$legacy_candidate_link"
+
+  local rel_path
+  if ! rel_path="$(realpath --relative-to="$target_mount_dir" "$CANDIDATE_UNIVERSE_EXPORT_PATH" 2>/dev/null)"; then
+    fail "realpath --relative-to is required to link candidate universe into detection-and-refactoring/target (missing util?)"
+  fi
+  if [[ -z "$rel_path" || "$rel_path" == "." ]]; then
+    fail "Refusing empty relative path when linking candidate universe into $target_mount_dir"
+  fi
+
+  ln -s "$rel_path" "$legacy_candidate_link"
+  log_line "Linked detection candidate-universe symlink: $legacy_candidate_link -> $rel_path (resolved host file: $CANDIDATE_UNIVERSE_EXPORT_PATH)"
 }
 
 write_run_configuration() {
@@ -338,6 +357,7 @@ CANDIDATE_UNIVERSE_EXPORT_PATH=$CANDIDATE_UNIVERSE_EXPORT_PATH
 EOF
   if [[ "$CANDIDATE_UNIVERSE" == "true" ]]; then
     printf 'RMT_EXPERIMENT_RUN_ID=%s\n' "$RUN_ID" >> "$RUN_DIR/config.env"
+    printf 'CANDIDATE_UNIVERSE_CONTAINER_PATH=%s\n' "/shadow-target/rmt-ai-candidate-universe.jsonl" >> "$RUN_DIR/config.env"
   fi
 }
 
