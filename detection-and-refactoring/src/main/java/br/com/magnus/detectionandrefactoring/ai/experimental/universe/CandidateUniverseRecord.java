@@ -36,6 +36,10 @@ public record CandidateUniverseRecord(
         String sourceCodeHash,
         String sourceCode,
         String observationStatus,
-        String traceId
+        String traceId,
+        String labelSource,
+        Boolean isPositive,
+        String sliceType,
+        String createdAt
 ) {
 }

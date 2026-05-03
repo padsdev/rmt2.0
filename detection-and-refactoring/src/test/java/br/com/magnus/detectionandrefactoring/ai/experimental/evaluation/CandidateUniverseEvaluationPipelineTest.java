@@ -1,5 +1,6 @@
 package br.com.magnus.detectionandrefactoring.ai.experimental.evaluation;
 
+import br.com.magnus.detectionandrefactoring.ai.experimental.universe.CandidateUniverseRecord;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -44,6 +45,23 @@ class CandidateUniverseEvaluationPipelineTest {
         assertFalse(CandidateUniverseEvaluationPipeline.validateSemantic(MAPPER.readTree(
                 "{\"schema_version\":\"candidate-universe-v1\",\"project_id\":\"p\",\"entity_key\":\"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\",\"pattern\":\"NOT_A_PATTERN\",\"heuristic_label\":1}"))
                 .isEmpty());
+    }
+
+    @Test
+    void legacy_minimal_line_without_semantic_extensions_post_validates() throws Exception {
+        var node = MAPPER.readTree(validLineMinimal());
+        assertTrue(CandidateUniverseEvaluationPipeline.validateSemantic(node).isEmpty());
+        var record = MAPPER.treeToValue(node, CandidateUniverseRecord.class);
+        assertTrue(CandidateUniverseEvaluationPipeline.postValidate(record).isEmpty());
+    }
+
+    @Test
+    void post_validate_rejects_is_positive_mismatch() throws Exception {
+        var json = validLineMinimal().replace("\"heuristic_label\":1", "\"heuristic_label\":1,\"is_positive\":false");
+        var node = MAPPER.readTree(json);
+        assertTrue(CandidateUniverseEvaluationPipeline.validateSemantic(node).isEmpty());
+        var record = MAPPER.treeToValue(node, CandidateUniverseRecord.class);
+        assertFalse(CandidateUniverseEvaluationPipeline.postValidate(record).isEmpty());
     }
 
     @Test

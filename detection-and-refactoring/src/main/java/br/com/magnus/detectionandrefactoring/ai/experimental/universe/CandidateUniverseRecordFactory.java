@@ -20,6 +20,8 @@ import org.springframework.stereotype.Component;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Instant;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -37,6 +39,16 @@ import java.util.stream.Collectors;
 public class CandidateUniverseRecordFactory {
 
     static final String SCHEMA_VERSION = "candidate-universe-v1";
+
+    /**
+     * {@code label_source} for rows whose {@code heuristic_label} comes from RMT operational detectors (not AI-only labels).
+     */
+    public static final String LABEL_SOURCE_RMT_HEURISTIC_OPERATIONAL = "rmt-heuristic-operational";
+
+    /**
+     * {@code slice_type} for current exports: one Java method inspected under one heuristic pattern (method-scoped slice).
+     */
+    public static final String SLICE_TYPE_METHOD = "METHOD";
 
     static final String EXTRACTOR_REASON = "universe_javafile_enum";
 
@@ -213,6 +225,8 @@ public class CandidateUniverseRecordFactory {
             observationStatus = observationStatusForFailure(failure);
         }
 
+        var createdAt = DateTimeFormatter.ISO_INSTANT.format(Instant.now());
+
         return new CandidateUniverseRecord(
                 SCHEMA_VERSION,
                 runId,
@@ -239,7 +253,11 @@ public class CandidateUniverseRecordFactory {
                 sourceCodeHash,
                 exportedSource,
                 observationStatus,
-                traceFormatted
+                traceFormatted,
+                LABEL_SOURCE_RMT_HEURISTIC_OPERATIONAL,
+                Boolean.valueOf(heuristicLabel == 1),
+                SLICE_TYPE_METHOD,
+                createdAt
         );
     }
 

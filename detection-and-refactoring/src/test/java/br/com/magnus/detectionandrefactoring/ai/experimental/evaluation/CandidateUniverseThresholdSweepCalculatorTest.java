@@ -183,6 +183,10 @@ class CandidateUniverseThresholdSweepCalculatorTest {
                 null,
                 null,
                 null,
+                null,
+                null,
+                null,
+                null,
                 null);
     }
 }

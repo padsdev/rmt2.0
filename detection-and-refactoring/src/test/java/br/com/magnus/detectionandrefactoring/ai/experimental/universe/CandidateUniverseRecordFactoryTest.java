@@ -88,6 +88,8 @@ class CandidateUniverseRecordFactoryTest {
                 Integer.valueOf(1).equals(r.heuristicLabel())
                         && DesignPattern.FACTORY_METHOD.name().equals(r.pattern())
                         && entityId.equals(r.entityId())
+                        && Boolean.TRUE.equals(r.isPositive())
+                        && CandidateUniverseRecordFactory.LABEL_SOURCE_RMT_HEURISTIC_OPERATIONAL.equals(r.labelSource())
         ));
 
         assertTrue(rows.stream().anyMatch(r ->
@@ -233,7 +235,14 @@ class CandidateUniverseRecordFactoryTest {
         assertEquals(rows.size(), split.length);
         for (var fragment : split) {
             assertNotNull(objectMapper.readTree(fragment));
-            assertEquals("candidate-universe-v1", objectMapper.readTree(fragment).get("schema_version").asText());
+            var node = objectMapper.readTree(fragment);
+            assertEquals("candidate-universe-v1", node.get("schema_version").asText());
+            assertEquals(CandidateUniverseRecordFactory.LABEL_SOURCE_RMT_HEURISTIC_OPERATIONAL, node.get("label_source").asText());
+            assertEquals(CandidateUniverseRecordFactory.SLICE_TYPE_METHOD, node.get("slice_type").asText());
+            assertTrue(node.has("created_at") && node.get("created_at").isTextual());
+            assertDoesNotThrow(() -> java.time.Instant.parse(node.get("created_at").asText()));
+            var h = node.get("heuristic_label").asInt();
+            assertEquals(h == 1, node.get("is_positive").asBoolean());
         }
     }
 }

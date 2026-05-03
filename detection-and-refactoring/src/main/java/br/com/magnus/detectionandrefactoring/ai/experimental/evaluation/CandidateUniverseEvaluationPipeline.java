@@ -8,6 +8,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -20,6 +22,8 @@ public class CandidateUniverseEvaluationPipeline {
     private static final String JSONL_EXTENSION = ".jsonl";
 
     private static final Set<String> SUPPORTED_PATTERN_NAMES = Set.of("FACTORY_METHOD", "STRATEGY", "TEMPLATE_METHOD");
+
+    private static final Set<String> SUPPORTED_SLICE_TYPES = Set.of("METHOD", "CLASS", "CANDIDATE");
 
     private final ObjectMapper objectMapper;
 
@@ -145,6 +149,32 @@ public class CandidateUniverseEvaluationPipeline {
         if (record.pattern() == null || record.pattern().isBlank() || !SUPPORTED_PATTERN_NAMES.contains(record.pattern())) {
             errors.add("Resolved pattern unsupported.");
         }
+
+        if (record.isPositive() != null) {
+            var expectedPositive = Integer.valueOf(1).equals(record.heuristicLabel());
+            if (!record.isPositive().equals(expectedPositive)) {
+                errors.add("Field is_positive must match heuristic_label (true iff heuristic_label == 1).");
+            }
+        }
+
+        if (record.labelSource() != null && record.labelSource().isBlank()) {
+            errors.add("Field label_source must not be blank when present.");
+        }
+
+        if (record.sliceType() != null && !record.sliceType().isBlank()) {
+            if (!SUPPORTED_SLICE_TYPES.contains(record.sliceType())) {
+                errors.add("Field slice_type must be one of METHOD, CLASS, or CANDIDATE when set.");
+            }
+        }
+
+        if (record.createdAt() != null && !record.createdAt().isBlank()) {
+            try {
+                Instant.parse(record.createdAt());
+            } catch (DateTimeParseException ignored) {
+                errors.add("Field created_at must be an ISO-8601 instant (e.g. 2026-05-03T12:00:00Z) when set.");
+            }
+        }
+
         return errors;
     }
 

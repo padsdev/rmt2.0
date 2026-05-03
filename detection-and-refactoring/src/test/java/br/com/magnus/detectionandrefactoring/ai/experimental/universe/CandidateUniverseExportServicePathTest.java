@@ -76,6 +76,10 @@ class CandidateUniverseExportServicePathTest {
             }
             var tree = objectMapper.readTree(line);
             assertEquals("candidate-universe-v1", tree.get("schema_version").asText());
+            assertEquals(CandidateUniverseRecordFactory.LABEL_SOURCE_RMT_HEURISTIC_OPERATIONAL, tree.get("label_source").asText());
+            assertEquals(CandidateUniverseRecordFactory.SLICE_TYPE_METHOD, tree.get("slice_type").asText());
+            assertTrue(tree.has("is_positive"));
+            assertTrue(tree.has("created_at"));
         }
     }
 }
