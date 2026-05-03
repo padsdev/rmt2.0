@@ -198,9 +198,7 @@ public class CandidateUniverseRecordFactory {
         List<String> aiPredictedLabelStrings = List.of();
         Double thresholdValue = null;
         String observationStatus;
-        var traceFormatted = aiAnalysisRow == null
-                ? syntheticTraceId(runId, entityKeyDigest, patternLabel)
-                : aiAnalysisRow.traceId().toString();
+        var traceFormatted = rowTraceId(runId, entityKeyDigest, patternLabel, aiAnalysisRow);
 
         if (aiAnalysisRow == null) {
             observationStatus = NOT_EVALUATED_BY_AI;
@@ -341,6 +339,29 @@ public class CandidateUniverseRecordFactory {
         var seed = (runId == null ? "" : runId)
                 + UNIT_SEPARATOR + entityKeyDigest
                 + UNIT_SEPARATOR + patternName;
+        return UUID.nameUUIDFromBytes(seed.getBytes(StandardCharsets.UTF_8)).toString();
+    }
+
+    /**
+     * One {@link ProjectAiAnalysis.CandidateAnalysis} (AI transport round-trip) is keyed by {@code candidateId} and
+     * carries a single {@code traceId}. The candidate-universe enumerates every method × supported pattern; overloads
+     * share the same heuristic {@code entityId} triple (path, class, simple name) and therefore the same AI row, which
+     * used to surface duplicate {@code trace_id} values across distinct {@code entity_key} rows. Compose a
+     * deterministic UUID from run slice identity plus the AI trace so each exported row stays unique and stable.
+     */
+    private static String rowTraceId(
+            String runId,
+            String entityKeyDigest,
+            String patternName,
+            ProjectAiAnalysis.CandidateAnalysis aiAnalysisRow
+    ) {
+        if (aiAnalysisRow == null) {
+            return syntheticTraceId(runId, entityKeyDigest, patternName);
+        }
+        var seed = (runId == null ? "" : runId)
+                + UNIT_SEPARATOR + entityKeyDigest
+                + UNIT_SEPARATOR + patternName
+                + UNIT_SEPARATOR + aiAnalysisRow.traceId();
         return UUID.nameUUIDFromBytes(seed.getBytes(StandardCharsets.UTF_8)).toString();
     }
 

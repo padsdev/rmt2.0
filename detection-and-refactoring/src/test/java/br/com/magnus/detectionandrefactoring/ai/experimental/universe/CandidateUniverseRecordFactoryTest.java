@@ -6,6 +6,9 @@ import br.com.magnus.config.starter.patterns.DesignPattern;
 import br.com.magnus.config.starter.projects.BaseProject;
 import br.com.magnus.config.starter.projects.Project;
 import br.com.magnus.detectionandrefactoring.ai.configuration.RmtAiProperties;
+import br.com.magnus.detectionandrefactoring.ai.domain.AiAnalysis;
+import br.com.magnus.detectionandrefactoring.ai.domain.AiClientResult;
+import br.com.magnus.detectionandrefactoring.ai.domain.ProjectAiAnalysis;
 import br.com.magnus.detectionandrefactoring.ai.experimental.HeuristicCandidateObservation;
 import br.com.magnus.detectionandrefactoring.ai.experimental.ProjectHeuristicObservations;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -244,5 +247,53 @@ class CandidateUniverseRecordFactoryTest {
             var h = node.get("heuristic_label").asInt();
             assertEquals(h == 1, node.get("is_positive").asBoolean());
         }
+    }
+
+    @Test
+    void overloads_sharing_one_heuristic_candidate_receive_distinct_trace_ids_when_ai_present() {
+        var source = """
+                class Rem {
+                    void invoke() {}
+                    void invoke(int x) {}
+                }
+                """;
+        var sourceFile = javaFile("src/main/java/demo/", "Rem.java", source);
+        var project = syntheticProject(sourceFile);
+        var sharedEntityId = "src/main/java/demo/Rem.java::Rem::invoke";
+        var heuristics = new ProjectHeuristicObservations(
+                project.getId(),
+                List.of(new HeuristicCandidateObservation("cand-overload", sharedEntityId, DesignPattern.STRATEGY, "t", 2014, "a"))
+        );
+        var sharedTransportTrace = UUID.fromString("f9f8543a-2022-3ca2-99a6-75c8fd9abe98");
+        var ai = new ProjectAiAnalysis(
+                project.getId(),
+                List.of(new ProjectAiAnalysis.CandidateAnalysis(
+                        "cand-overload",
+                        sharedEntityId,
+                        sharedTransportTrace,
+                        new AiClientResult.Success(new AiAnalysis(
+                                sharedTransportTrace,
+                                sharedEntityId,
+                                List.of(new AiAnalysis.Prediction(DesignPattern.STRATEGY, 0.5, false)),
+                                List.of(DesignPattern.STRATEGY),
+                                0.5,
+                                "stub",
+                                "default",
+                                new AiAnalysis.AppliedThresholds(0.1, 0.5, 0.2),
+                                new AiAnalysis.Timing(1L)
+                        )),
+                        1L
+                ))
+        );
+
+        var rows = factory.create(project, heuristics, ai).stream()
+                .filter(r -> "invoke".equals(r.methodName()) && DesignPattern.STRATEGY.name().equals(r.pattern()))
+                .toList();
+
+        assertEquals(2, rows.size(), "two overloads must each emit a STRATEGY universe row");
+        assertNotEquals(rows.get(0).traceId(), rows.get(1).traceId(),
+                "shared AI transport trace_id must not collapse distinct method slices");
+        assertNotEquals(sharedTransportTrace.toString(), rows.get(0).traceId(),
+                "universe trace must be slice-specific, not the raw AI trace string");
     }
 }
