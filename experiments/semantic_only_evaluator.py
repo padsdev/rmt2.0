@@ -9,7 +9,6 @@ import json
 import math
 import sys
 from collections import defaultdict
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, TextIO
 
@@ -35,12 +34,14 @@ def _safe_div(num: float, den: float) -> float | None:
     return num / den
 
 
-@dataclass
 class Confusion:
-    tp: int = 0
-    fp: int = 0
-    fn: int = 0
-    tn: int = 0
+    __slots__ = ("tp", "fp", "fn", "tn")
+
+    def __init__(self) -> None:
+        self.tp = 0
+        self.fp = 0
+        self.fn = 0
+        self.tn = 0
 
     def add(self, ref: int, pred: int) -> None:
         if ref == 1 and pred == 1:
@@ -212,12 +213,205 @@ def _metrics_row(
     }
 
 
+def _iter_thresholds(start: float, end: float, step: float) -> list[float]:
+    if step <= 0:
+        raise ValueError("threshold step must be positive")
+    out: list[float] = []
+    i = 0
+    while i < 1_000_000:
+        t = round(start + i * step, 10)
+        if t > end + 1e-9:
+            break
+        out.append(t)
+        i += 1
+    return out
+
+
+def _confusion_at_threshold(rows: list[tuple[int, float]], threshold: float) -> Confusion:
+    c = Confusion()
+    for ref, score in rows:
+        pred = 1 if score >= threshold else 0
+        c.add(ref, pred)
+    return c
+
+
+def _sweep_row_dict(
+    *,
+    scope: str,
+    key: str,
+    threshold: float,
+    total: int,
+    valid: int,
+    c: Confusion,
+) -> dict[str, Any]:
+    prec = c.precision()
+    rec = c.recall()
+    f1 = c.f1()
+    acc = c.accuracy()
+    agr = c.agreement_rate()
+    return {
+        "scope": scope,
+        "key": key,
+        "threshold": f"{threshold:.10f}".rstrip("0").rstrip("."),
+        "total": total,
+        "valid": valid,
+        "TP": c.tp,
+        "FP": c.fp,
+        "FN": c.fn,
+        "TN": c.tn,
+        "precision": _fmt_rate(prec) if prec is not None else _na_csv(),
+        "recall": _fmt_rate(rec) if rec is not None else _na_csv(),
+        "f1": _fmt_rate(f1) if f1 is not None else _na_csv(),
+        "accuracy": _fmt_rate(acc) if acc is not None else _na_csv(),
+        "agreement_rate": _fmt_rate(agr) if agr is not None else _na_csv(),
+        "_f1": f1,
+        "_agr": agr,
+    }
+
+
+def _pick_best_threshold(
+    rows_metrics: list[dict[str, Any]], *, metric_key: str
+) -> dict[str, Any] | None:
+    """metric_key is '_f1' or '_agr'; tie-break: higher threshold."""
+    best: dict[str, Any] | None = None
+    best_val = float("-inf")
+    best_thr = float("-inf")
+    for r in rows_metrics:
+        v = r.get(metric_key)
+        thr = float(r["threshold"])
+        if v is None or (isinstance(v, float) and (math.isnan(v) or math.isinf(v))):
+            continue
+        if v > best_val + 1e-15 or (abs(v - best_val) <= 1e-15 and thr > best_thr):
+            best = r
+            best_val = v
+            best_thr = thr
+    return best
+
+
+def _write_threshold_sweep(
+    *,
+    output_dir: Path,
+    overall_rows: list[tuple[int, float]],
+    by_pattern_rows: dict[str, list[tuple[int, float]]],
+    thresholds: list[float],
+    issues: list[str],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    sweep_csv_fields = [
+        "scope",
+        "key",
+        "threshold",
+        "total",
+        "valid",
+        "TP",
+        "FP",
+        "FN",
+        "TN",
+        "precision",
+        "recall",
+        "f1",
+        "accuracy",
+        "agreement_rate",
+    ]
+    all_sweep_rows: list[dict[str, Any]] = []
+    best_rows: list[dict[str, Any]] = []
+
+    def run_scope(scope: str, key: str, pairs: list[tuple[int, float]]) -> None:
+        nonlocal all_sweep_rows, best_rows
+        if not pairs:
+            issues.append(f"threshold_sweep: no paired rows with numeric score for scope={scope} key={key}")
+            return
+        n = len(pairs)
+        scope_metrics: list[dict[str, Any]] = []
+        for thr in thresholds:
+            c = _confusion_at_threshold(pairs, thr)
+            row = _sweep_row_dict(scope=scope, key=key, threshold=thr, total=n, valid=c.valid, c=c)
+            out_row = {k: row[k] for k in sweep_csv_fields}
+            all_sweep_rows.append(out_row)
+            scope_metrics.append(row)
+        bf = _pick_best_threshold(scope_metrics, metric_key="_f1")
+        ba = _pick_best_threshold(scope_metrics, metric_key="_agr")
+        if bf is not None:
+            best_rows.append(
+                {
+                    "scope": scope,
+                    "key": key,
+                    "best_by": "f1",
+                    "best_threshold": bf["threshold"],
+                    "precision": bf["precision"],
+                    "recall": bf["recall"],
+                    "f1": bf["f1"],
+                    "accuracy": bf["accuracy"],
+                    "agreement_rate": bf["agreement_rate"],
+                    "TP": bf["TP"],
+                    "FP": bf["FP"],
+                    "FN": bf["FN"],
+                    "TN": bf["TN"],
+                }
+            )
+        if ba is not None:
+            best_rows.append(
+                {
+                    "scope": scope,
+                    "key": key,
+                    "best_by": "agreement_rate",
+                    "best_threshold": ba["threshold"],
+                    "precision": ba["precision"],
+                    "recall": ba["recall"],
+                    "f1": ba["f1"],
+                    "accuracy": ba["accuracy"],
+                    "agreement_rate": ba["agreement_rate"],
+                    "TP": ba["TP"],
+                    "FP": ba["FP"],
+                    "FN": ba["FN"],
+                    "TN": ba["TN"],
+                }
+            )
+
+    run_scope("OVERALL", "OVERALL", overall_rows)
+    for pat in sorted(by_pattern_rows.keys()):
+        run_scope("PATTERN", pat, by_pattern_rows[pat])
+
+    out_path = output_dir / "threshold-sweep.csv"
+    with out_path.open("w", encoding="utf-8", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=sweep_csv_fields)
+        w.writeheader()
+        for row in all_sweep_rows:
+            w.writerow(row)
+
+    best_fields = [
+        "scope",
+        "key",
+        "best_by",
+        "best_threshold",
+        "precision",
+        "recall",
+        "f1",
+        "accuracy",
+        "agreement_rate",
+        "TP",
+        "FP",
+        "FN",
+        "TN",
+    ]
+    with (output_dir / "best-thresholds.csv").open("w", encoding="utf-8", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=best_fields)
+        w.writeheader()
+        for row in best_rows:
+            w.writerow(row)
+
+    return best_rows, all_sweep_rows
+
+
 def evaluate(
     *,
     candidate_universe_path: Path,
     predictions_path: Path,
     output_dir: Path,
     summary_stream: TextIO,
+    threshold_sweep: bool,
+    threshold_start: float,
+    threshold_end: float,
+    threshold_step: float,
 ) -> int:
     issues: list[str] = []
     cu_rows = _read_jsonl_lines(candidate_universe_path, "candidate-universe", issues)
@@ -310,6 +504,9 @@ def evaluate(
 
     valid_pairs = 0
     label_fail_cu = 0
+    sweep_overall: list[tuple[int, float]] = []
+    sweep_by_pattern: dict[str, list[tuple[int, float]]] = defaultdict(list)
+
     for tid, (ln_cu, cu_obj) in cu_by_trace.items():
         if tid not in ok_pred_by_trace:
             continue
@@ -333,6 +530,19 @@ def evaluate(
         by_pattern[pat].add(ref, pl)
         by_project[pid].add(ref, pl)
         valid_pairs += 1
+
+        if threshold_sweep:
+            sv = pr_obj.get("score")
+            if sv is None or isinstance(sv, bool) or not isinstance(sv, (int, float)):
+                issues.append(
+                    f"threshold_sweep: trace_id {tid!r}: score missing or non-numeric; excluded from sweep"
+                )
+            elif isinstance(sv, float) and (math.isnan(sv) or math.isinf(sv)):
+                issues.append(f"threshold_sweep: trace_id {tid!r}: score not finite; excluded from sweep")
+            else:
+                sc = float(sv)
+                sweep_overall.append((ref, sc))
+                sweep_by_pattern[pat].append((ref, sc))
 
     total_cu_indexed = len(cu_by_trace)
     valid = overall.valid
@@ -388,6 +598,50 @@ def evaluate(
             tot = project_totals.get(pid, 0)
             w.writerow(slice_row("PROJECT", pid, by_project[pid], tot))
 
+    best_summary_lines: list[str] = []
+    if threshold_sweep:
+        try:
+            thr_list = _iter_thresholds(threshold_start, threshold_end, threshold_step)
+        except ValueError as exc:
+            issues.append(f"threshold_sweep: {exc}")
+            thr_list = []
+        if thr_list and sweep_overall:
+            best_rows, _ = _write_threshold_sweep(
+                output_dir=output_dir,
+                overall_rows=sweep_overall,
+                by_pattern_rows=dict(sweep_by_pattern),
+                thresholds=thr_list,
+                issues=issues,
+            )
+            best_summary_lines.append("## Threshold sweep")
+            best_summary_lines.append("")
+            best_summary_lines.append(
+                "Sweep uses **`score`** from predictions only; `predicted_label` in the file is ignored for sweep. "
+                "`predicted_label_sweep = 1` if `score >= threshold`, else `0`, compared to **`heuristic_label`**."
+            )
+            best_summary_lines.append("")
+            ov_f1 = next((r for r in best_rows if r["scope"] == "OVERALL" and r["best_by"] == "f1"), None)
+            ov_ag = next((r for r in best_rows if r["scope"] == "OVERALL" and r["best_by"] == "agreement_rate"), None)
+            if ov_f1:
+                best_summary_lines.append(
+                    f"- **OVERALL best F1:** threshold **{ov_f1['best_threshold']}**, "
+                    f"F1={ov_f1['f1']}, agreement_rate={ov_f1['agreement_rate']}"
+                )
+            if ov_ag:
+                best_summary_lines.append(
+                    f"- **OVERALL best agreement_rate:** threshold **{ov_ag['best_threshold']}**, "
+                    f"agreement_rate={ov_ag['agreement_rate']}, F1={ov_ag['f1']}"
+                )
+            best_summary_lines.append("")
+            best_summary_lines.append("Per-pattern bests: see `best-thresholds.csv`. Full grid: `threshold-sweep.csv`.")
+            best_summary_lines.append("")
+        else:
+            issues.append("threshold_sweep: skipped (no thresholds or no sweep-eligible pairs)")
+            best_summary_lines.append("## Threshold sweep")
+            best_summary_lines.append("")
+            best_summary_lines.append("_Sweep was requested but produced no rows (no eligible pairs or invalid grid)._")
+            best_summary_lines.append("")
+
     integrity = {
         "schema": "semantic-only-integrity/v1",
         "candidate_universe_path": str(candidate_universe_path),
@@ -406,6 +660,7 @@ def evaluate(
         "distinct_run_ids_predictions": sorted(pr_run_ids),
         "valid_pairs": valid_pairs,
         "heuristic_label_invalid_or_missing_on_paired_cu": label_fail_cu,
+        "threshold_sweep_enabled": threshold_sweep,
         "issues": issues,
         "blocking_forbidden_prediction_fields": blocking_forbidden,
     }
@@ -456,10 +711,26 @@ def evaluate(
         "- `metrics-by-project.csv`",
         "- `integrity-report.json`",
         "- `evaluation-summary.md`",
-        "",
-        "_Threshold sweep for semantic-only is deferred; not produced by this evaluator._",
-        "",
     ]
+    if threshold_sweep:
+        summary_lines.extend(
+            [
+                "- `threshold-sweep.csv` (when `--threshold-sweep` is passed)",
+                "- `best-thresholds.csv`",
+            ]
+        )
+    else:
+        summary_lines.append(
+            "- Offline threshold sweep: pass `--threshold-sweep` (optional `--threshold-start`, `--threshold-end`, `--threshold-step`)."
+        )
+    summary_lines.append("")
+    if best_summary_lines:
+        summary_lines.extend(best_summary_lines)
+    else:
+        summary_lines.append(
+            "_Threshold sweep was not run; overall metrics use `predicted_label` from the predictions file._"
+        )
+        summary_lines.append("")
     (output_dir / "evaluation-summary.md").write_text("\n".join(summary_lines), encoding="utf-8")
 
     print(
@@ -492,6 +763,14 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--candidate-universe-input", required=True, type=Path)
     p.add_argument("--semantic-only-predictions-input", required=True, type=Path)
     p.add_argument("--output-dir", required=True, type=Path)
+    p.add_argument(
+        "--threshold-sweep",
+        action="store_true",
+        help="Write threshold-sweep.csv and best-thresholds.csv using score vs heuristic_label (no re-inference).",
+    )
+    p.add_argument("--threshold-start", type=float, default=0.0)
+    p.add_argument("--threshold-end", type=float, default=1.0)
+    p.add_argument("--threshold-step", type=float, default=0.01)
     args = p.parse_args(argv)
 
     if not args.candidate_universe_input.is_file():
@@ -506,6 +785,10 @@ def main(argv: list[str] | None = None) -> int:
         predictions_path=args.semantic_only_predictions_input,
         output_dir=args.output_dir,
         summary_stream=sys.stderr,
+        threshold_sweep=args.threshold_sweep,
+        threshold_start=args.threshold_start,
+        threshold_end=args.threshold_end,
+        threshold_step=args.threshold_step,
     )
 
 
