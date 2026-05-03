@@ -11,6 +11,7 @@ import java.nio.file.Path;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ShadowExperimentEvaluationCliTest {
@@ -83,6 +84,24 @@ class ShadowExperimentEvaluationCliTest {
         assertTrue(Files.exists(out.resolve("shadow-evaluation-overall.csv")));
         assertTrue(Files.exists(out.resolve(CandidateUniverseEvaluationWriter.INTEGRITY_CSV)));
         assertTrue(Files.exists(out.resolve(CandidateUniverseEvaluationWriter.METRICS_OVERALL_CSV)));
+        assertTrue(Files.exists(out.resolve(CandidateUniverseEvaluationWriter.THRESHOLD_SWEEP_OVERALL_CSV)));
+        assertTrue(Files.exists(out.resolve(CandidateUniverseEvaluationWriter.THRESHOLD_SWEEP_BY_PATTERN_CSV)));
+        assertTrue(Files.exists(out.resolve(CandidateUniverseEvaluationWriter.THRESHOLD_SWEEP_BEST_CSV)));
+    }
+
+    @Test
+    void orchestrate_legacyOnly_doesNotEmitCandidateUniverseFiles() throws Exception {
+        var out = tempDir.resolve("legacy-only-out");
+        Files.createDirectories(out);
+        var legacyFixture = Path.of(getClass().getClassLoader().getResource("ai/experimental/shadow-evaluation/shadow-valid-and-failure.jsonl").toURI());
+        var args = EvaluationCliArguments.parse(new String[] {
+                "--input", legacyFixture.toString(),
+                "--output", out.toString()
+        });
+        assertDoesNotThrow(() -> ShadowExperimentEvaluationCli.orchestrateEvaluation(args, MAPPER));
+        assertTrue(Files.exists(out.resolve("shadow-evaluation-overall.csv")));
+        assertFalse(Files.exists(out.resolve(CandidateUniverseEvaluationWriter.INTEGRITY_CSV)));
+        assertFalse(Files.exists(out.resolve(CandidateUniverseEvaluationWriter.THRESHOLD_SWEEP_BEST_CSV)));
     }
 
     @Test
@@ -97,5 +116,6 @@ class ShadowExperimentEvaluationCliTest {
                 "--output", out.toString()
         });
         assertTrue(Files.isDirectory(out));
+        assertTrue(Files.exists(out.resolve(CandidateUniverseEvaluationWriter.THRESHOLD_SWEEP_BEST_CSV)));
     }
 }

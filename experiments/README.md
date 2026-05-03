@@ -37,8 +37,15 @@ Legacy M4 shadow JSONL is still evaluated with the original pipeline and filenam
 - `candidate-universe-metrics-by-pattern.csv`
 - `candidate-universe-ranking-by-pattern.csv`
 - `candidate-universe-warnings.md`
+- `candidate-universe-threshold-sweep-overall.csv`
+- `candidate-universe-threshold-sweep-by-pattern.csv`
+- `candidate-universe-threshold-sweep-best.csv`
 
-**Semantics (by design):** rows with `ai_label=null` are **not** placed in TP/FP/FN/TN; ranking uses only rows with non-null `ai_score`. Rates that need evaluated heuristic negatives (specificity, FPR, balanced accuracy, MCC) emit `NA` when `evaluated_negative_rows=0`. Threshold sweeping over `threshold` columns is **not** implemented here; [`threshold-sweep-readiness.jsonl`](../detection-and-refactoring/src/test/resources/ai/experimental/candidate-universe-eval/threshold-sweep-readiness.jsonl) exists only as a fixture for later work.
+**Semantics (by design — Slice 2 `ai_label` metrics):** rows with `ai_label=null` are **not** placed in TP/FP/FN/TN in the main universe confusion reports; ranking uses only rows with non-null `ai_score`. Those reports use Slice 2 `NA` semantics (e.g. specificity / MCC withheld when there are no evaluated heuristic negatives **in that report’s sense**).
+
+**Threshold sweep (runs automatically with candidate-universe evaluation):** offline sensitivity analysis using only rows where `ai_score` is **not null**. At each threshold on the grid `0.05, 0.10, …, 0.95` (step `0.05`), a temporary prediction is **`ai_score >= threshold ? 1 : 0`** compared against **`heuristic_label`** as the operational reference. Stored **`ai_label` is not used for sweep predictions**. Rows without `ai_score` are excluded from sweep support counts (`support_scored`). Undefined rates follow the same `NA` conventions as Slice 2 (never write `0` for impossible divisions). Matthews correlation matches the Slice 2 formula; if `support_scored` has zero heuristic positives or zero heuristic negatives, recall/FNR or TN-dependent metrics are `NA`, respectively. **`candidate-universe-threshold-sweep-best.csv`** summarizes, per scope (`OVERALL` then each pattern), the best thresholds by F1, MCC, and balanced accuracy—with explicit `support_scored`, `scored_positives`, and `scored_negatives` context—and **tie-breaking chooses the highest threshold** among tied scores. Best rows are **diagnostic hints for this corpus only**, not evidence of generalization or model superiority vs independent validation. Repeated benchmark orchestration (“run all projects again”) is unchanged; sweeping is an offline evaluator artifact.
+
+**Ranking Precision@k / Recall@k:** for each pattern, scored rows are sorted by descending `ai_score`. Let `effective_k = min(k, number_of_scored_rows_for_that_pattern)`. Then **`precision_at_k` =** (scored heuristic positives in the top `effective_k`) **÷ `effective_k`**. **`recall_at_k` =** that same numerator **÷** (total scored heuristic positives for that pattern)—the recall denominator does not shrink when the pool has fewer than `k` rows.
 
 Java entry point: `br.com.magnus.detectionandrefactoring.ai.experimental.evaluation.ShadowExperimentEvaluationCli` (same classpath as the legacy evaluator). Optional JUnit smoke: `-Drmt.shell.smoke=true` enables a test that invokes `main` with mixed legacy + universe fixtures.
 

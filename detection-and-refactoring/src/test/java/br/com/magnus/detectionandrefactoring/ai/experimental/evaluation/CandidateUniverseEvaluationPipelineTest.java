@@ -134,13 +134,33 @@ class CandidateUniverseEvaluationPipelineTest {
         assertEquals(5.0 / 6.0, strategyRanking.averagePrecision(), 1e-9);
         assertEquals(1.0d, strategyRanking.precisionAt1(), 1e-9);
         assertEquals(0.4d, strategyRanking.precisionAt5(), 1e-9);
+        /** Five scored STRATEGY rows: effective_k for k=10 is 5 → same numerator as Precision@5 (2 positives in top five). */
+        assertEquals(0.4d, strategyRanking.precisionAt10(), 1e-9);
         assertEquals(1.0d, strategyRanking.recallAt5(), 1e-9);
 
         var templateRanking = report.rankingByPattern().stream().filter(r -> "TEMPLATE_METHOD".equals(r.pattern())).findFirst().orElseThrow();
         assertEquals(1.0d, templateRanking.averagePrecision(), 1e-9);
+        assertEquals(0.5d, templateRanking.precisionAt5(), 1e-9);
+        assertEquals(0.5d, templateRanking.precisionAt10(), 1e-9);
 
         var factoryRanking = report.rankingByPattern().stream().filter(r -> "FACTORY_METHOD".equals(r.pattern())).findFirst().orElseThrow();
         assertNull(factoryRanking.averagePrecision());
+    }
+
+    @Test
+    void precisionAtKUsesCappedDenominatorForSmallScoredPools() throws Exception {
+        var file = tempDir.resolve("rank-cap.jsonl");
+        Files.writeString(file, """
+                {"schema_version":"candidate-universe-v1","project_id":"p","entity_key":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","pattern":"STRATEGY","heuristic_label":1,"ai_label":1,"ai_score":0.99}
+                {"schema_version":"candidate-universe-v1","project_id":"p","entity_key":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","pattern":"STRATEGY","heuristic_label":0,"ai_label":0,"ai_score":0.50}
+                {"schema_version":"candidate-universe-v1","project_id":"p","entity_key":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc","pattern":"STRATEGY","heuristic_label":0,"ai_label":0,"ai_score":0.10}
+                """);
+
+        var rank = pipeline.evaluate(List.of(file)).rankingByPattern().stream().filter(r -> "STRATEGY".equals(r.pattern())).findFirst().orElseThrow();
+        assertEquals(1.0d, rank.precisionAt1(), 1e-9);
+        assertEquals(1.0 / 3.0, rank.precisionAt5(), 1e-9);
+        assertEquals(1.0 / 3.0, rank.precisionAt10(), 1e-9);
+        assertEquals(1.0d, rank.recallAt10(), 1e-9);
     }
 
     @Test

@@ -42,7 +42,7 @@ public final class CandidateUniverseMetricsCalculator {
         var warnings = new ArrayList<String>();
         warnings.add("Rows where `ai_label` is null indicate the AI never produced a verdict for that universe row—they must not be treated as heuristic-like rejections.");
         warnings.add("Confusion-matrix metrics include only rows with non-null `ai_label`; null labels are counted in integrity only.");
-        warnings.add("Ranking metrics include only rows with non-null `ai_score`; null scores are omitted from Precision@k / Recall@k / AP.");
+        warnings.add("Ranking metrics include only rows with non-null `ai_score`; null scores are omitted from Precision@k / Recall@k / AP; Precision@k divides by min(k, scored_row_count) per pattern.");
         warnings.add("""
                 Candidate-universe evaluation is inherently partial unless every exported row carries AI scores and labels. \
                 TN, specificity, MCC, balanced accuracy, and ranking metrics become meaningful only once evaluated negatives \
@@ -51,6 +51,8 @@ public final class CandidateUniverseMetricsCalculator {
         var overall = buildConfusionSlice(SCOPE_OVERALL, orderedRecords, warnings);
         var perPattern = buildPerPatternSlices(orderedRecords, warnings);
         var ranking = buildAllRankingSlices(orderedRecords, warnings);
+
+        var sweep = CandidateUniverseThresholdSweepCalculator.compute(orderedRecords, KNOWN_PATTERN_ORDER);
 
         return new CandidateUniverseEvaluationReport(
                 resolvedStrings,
@@ -61,7 +63,11 @@ public final class CandidateUniverseMetricsCalculator {
                 overall,
                 perPattern,
                 ranking,
-                List.copyOf(warnings)
+                List.copyOf(warnings),
+                sweep.overallByThresholdAscending(),
+                sweep.byPatternPatternThenThreshold(),
+                sweep.bestOverallFirstThenPattern(),
+                sweep.thresholdSweepWarnings()
         );
     }
 
@@ -297,9 +303,9 @@ public final class CandidateUniverseMetricsCalculator {
         if (ranked.isEmpty()) {
             return null;
         }
-        int head = Math.min(k, ranked.size());
-        long relHead = ranked.subList(0, head).stream().filter(r -> Objects.equals(1, r.heuristicLabel())).count();
-        return relHead / (double) k;
+        int effectiveK = Math.min(k, ranked.size());
+        long relHead = ranked.subList(0, effectiveK).stream().filter(r -> Objects.equals(1, r.heuristicLabel())).count();
+        return relHead / (double) effectiveK;
     }
 
     private static Double recallAtRank(List<CandidateUniverseRecord> ranked, int k, int totalRelevantInPool) {
@@ -309,8 +315,8 @@ public final class CandidateUniverseMetricsCalculator {
         if (ranked.isEmpty()) {
             return null;
         }
-        int head = Math.min(k, ranked.size());
-        long relHead = ranked.subList(0, head).stream().filter(r -> Objects.equals(1, r.heuristicLabel())).count();
+        int effectiveK = Math.min(k, ranked.size());
+        long relHead = ranked.subList(0, effectiveK).stream().filter(r -> Objects.equals(1, r.heuristicLabel())).count();
         return relHead / (double) totalRelevantInPool;
     }
 

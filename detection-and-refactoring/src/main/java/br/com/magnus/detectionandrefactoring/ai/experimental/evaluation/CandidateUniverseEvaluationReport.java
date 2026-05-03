@@ -12,6 +12,10 @@ public record CandidateUniverseEvaluationReport(
         CandidateUniverseConfusionMetrics overallMetrics,
         List<CandidateUniverseConfusionMetrics> metricsByPattern,
         List<CandidateUniverseRankingMetrics> rankingByPattern,
-        List<String> warnings
+        List<String> warnings,
+        List<CandidateUniverseThresholdSweepRow> thresholdSweepOverall,
+        List<CandidateUniverseThresholdSweepRow> thresholdSweepByPattern,
+        List<CandidateUniverseBestThresholdRow> thresholdSweepBest,
+        List<String> thresholdSweepWarnings
 ) {
 }
