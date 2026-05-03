@@ -19,6 +19,13 @@ public class RmtAiProperties {
     private Duration connectTimeout = Duration.ofMillis(500);
     private Duration readTimeout = Duration.ofSeconds(2);
     private Path shadowExportPath;
+
+    /** When set (e.g. {@code RMT_AI_CANDIDATE_UNIVERSE_EXPORT_PATH}), append candidate-universe JSONL records separately from legacy shadow exports. */
+    private Path candidateUniverseExportPath;
+
+    /** Optional run identifier echoed into candidate-universe lines ({@code RMT_EXPERIMENT_RUN_ID}); {@code project_commit} remains null unless added by an external benchmark manifest. */
+    private String experimentRunId;
+
     private boolean exportSourceCode = true;
 
     public URI getAnalyzeUri() {

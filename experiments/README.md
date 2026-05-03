@@ -18,6 +18,16 @@ This directory contains the offline, reproducible benchmark workflow for the 17 
 - The detection service must receive `RMT_AI_SHADOW_EXPORT_PATH` when AI shadow export is enabled. The application now fails fast instead of silently appending to `target/rmt-ai-shadow-observations.jsonl`.
 - The runner allocates a unique shadow JSONL file per benchmark run, truncates it before uploads begin, and acquires a lock so concurrent AI benchmark runs do not share the export stream.
 
+## Candidate universe JSONL (`candidate-universe-v1`)
+
+The detection service may append rows to an **additional** newline-delimited stream when relaxed binding resolves `rmt.ai.candidate-universe-export-path` from the environment (for example `RMT_AI_CANDIDATE_UNIVERSE_EXPORT_PATH`). This exporter does not mutate the legacy M5 shadow JSONL file; it emits one JSON object per line with `schema_version: candidate-universe-v1`.
+
+Each record enumerates a method inspected under every supported heuristic pattern (`STRATEGY`, `TEMPLATE_METHOD`, `FACTORY_METHOD`), merges heuristic-positive labels detected by RMT when available, attaches shadow AI payloads when analyses exist for that heuristic candidate, and tags pattern-aware **hard negatives** using lightweight AST cues. Omitting `RMT_AI_CANDIDATE_UNIVERSE_EXPORT_PATH` keeps the legacy pipeline unchanged—no universe file is written.
+
+Optional metadata: set `RMT_EXPERIMENT_RUN_ID` (`rmt.ai.experiment-run-id`) so append-only runs carrying the same filesystem path remain distinguishable. `project_commit` is intentionally omitted (null); benchmark runners should capture commit hashes in manifests or tooling when needed.
+
+Later evaluation steps can ingest this corpus to quantify true negatives, specificity, Matthews correlation, balanced accuracy, future threshold sweeps, and ranking-style metrics without perturbing refactoring decisions.
+
 Typical stack startup:
 
 ```bash

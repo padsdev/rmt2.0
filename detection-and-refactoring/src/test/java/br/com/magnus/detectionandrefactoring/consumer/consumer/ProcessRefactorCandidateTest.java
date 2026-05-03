@@ -7,6 +7,7 @@ import br.com.magnus.detectionandrefactoring.ai.domain.ProjectAiAnalysis;
 import br.com.magnus.detectionandrefactoring.ai.experimental.ProjectHeuristicObservationsFactory;
 import br.com.magnus.detectionandrefactoring.ai.experimental.ShadowExperimentExporter;
 import br.com.magnus.detectionandrefactoring.ai.experimental.ShadowExperimentRecordFactory;
+import br.com.magnus.detectionandrefactoring.ai.experimental.universe.CandidateUniverseExportService;
 import br.com.magnus.detectionandrefactoring.ai.service.ProjectAiAnalysisContext;
 import br.com.magnus.detectionandrefactoring.ai.service.ProjectAiAnalyzer;
 import br.com.magnus.config.starter.file.extractor.FileExtractor;
@@ -56,6 +57,8 @@ class ProcessRefactorCandidateTest {
     private ShadowExperimentRecordFactory shadowExperimentRecordFactory;
     @Mock
     private ShadowExperimentExporter shadowExperimentExporter;
+    @Mock
+    private CandidateUniverseExportService candidateUniverseExportService;
     private ProjectAiAnalysisContext projectAiAnalysisContext;
     private ProcessRefactorCandidate processRefactorCandidate;
 
@@ -78,7 +81,8 @@ class ProcessRefactorCandidateTest {
                 projectAiAnalysisContext,
                 projectHeuristicObservationsFactory,
                 shadowExperimentRecordFactory,
-                shadowExperimentExporter
+                shadowExperimentExporter,
+                candidateUniverseExportService
         );
     }
 

@@ -5,6 +5,7 @@ import br.com.magnus.detectionandrefactoring.ai.experimental.ProjectHeuristicObs
 import br.com.magnus.detectionandrefactoring.ai.experimental.ShadowExperimentExporter;
 import br.com.magnus.detectionandrefactoring.ai.experimental.ShadowExperimentRecord;
 import br.com.magnus.detectionandrefactoring.ai.experimental.ShadowExperimentRecordFactory;
+import br.com.magnus.detectionandrefactoring.ai.experimental.universe.CandidateUniverseExportService;
 import br.com.magnus.detectionandrefactoring.ai.service.ProjectAiAnalysisContext;
 import br.com.magnus.detectionandrefactoring.ai.service.ProjectAiAnalyzer;
 import br.com.magnus.config.starter.file.extractor.FileExtractor;
@@ -37,6 +38,7 @@ public class ProcessRefactorCandidate {
     private final ProjectHeuristicObservationsFactory projectHeuristicObservationsFactory;
     private final ShadowExperimentRecordFactory shadowExperimentRecordFactory;
     private final ShadowExperimentExporter shadowExperimentExporter;
+    private final CandidateUniverseExportService candidateUniverseExportService;
 
     public void process(String id) {
         Assert.notNull(id, "Id cannot be null");
@@ -53,6 +55,7 @@ public class ProcessRefactorCandidate {
             finalizeWithTerminalFailure(project, exception);
         } finally {
             exportShadowExperiment(project);
+            exportCandidateUniverseIfConfigured(project);
             projectAiAnalysisContext.clear(project.getId());
         }
     }
@@ -79,6 +82,10 @@ public class ProcessRefactorCandidate {
             return;
         }
         sendProject.send(project.getId());
+    }
+
+    private void exportCandidateUniverseIfConfigured(Project project) {
+        candidateUniverseExportService.exportIfConfigured(project);
     }
 
     private void exportShadowExperiment(Project project) {

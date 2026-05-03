@@ -182,4 +182,51 @@ class JsonlShadowExperimentExporterTest {
 
         assertTrue(exception.getMessage().contains("RMT_AI_SHADOW_EXPORT_PATH must be set"));
     }
+
+    @Test
+    void legacyShadowJsonMustNotReuseCandidateUniverseSchema() throws Exception {
+        var properties = new RmtAiProperties();
+        properties.setShadowExportPath(tempDir.resolve("shadow-schema-guard.jsonl"));
+        var objectMapper = new ObjectMapper();
+        var exporter = new JsonlShadowExperimentExporter(objectMapper, properties);
+
+        exporter.export(List.of(
+                new ShadowExperimentRecord(
+                        "project-17",
+                        "candidate-1",
+                        "src/main/java/foo/Bar.java::Bar::calculate",
+                        UUID.fromString("9ce0db76-b5ea-4722-8c1c-4d8a8a8250e4"),
+                        ShadowObservationStatus.VALID_OBSERVATION,
+                        DesignPattern.STRATEGY,
+                        "heuristic-ref",
+                        2014,
+                        "authors",
+                        List.of(DesignPattern.STRATEGY),
+                        0.87,
+                        "shadow-profile",
+                        0.10,
+                        0.55,
+                        0.50,
+                        9L,
+                        40L,
+                        9.0,
+                        null,
+                        null,
+                        "void calculate() {}",
+                        "method",
+                        "src/main/java/foo/Bar.java",
+                        "Bar",
+                        "calculate",
+                        "wei"
+                )
+        ));
+
+        var line = Files.readAllLines(properties.getShadowExportPath()).getFirst();
+        var node = objectMapper.readTree(line);
+
+        assertFalse(node.has("schema_version"), "candidate-universe lines must stay out of legacy shadow streams");
+        assertEquals("candidate-1", node.get("candidate_id").asText());
+        assertTrue(node.get("trace_id").isTextual());
+        assertEquals("STRATEGY", node.get("heuristic_pattern").asText());
+    }
 }
