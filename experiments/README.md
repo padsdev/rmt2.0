@@ -28,6 +28,20 @@ Optional metadata: set `RMT_EXPERIMENT_RUN_ID` (`rmt.ai.experiment-run-id`) so a
 
 Later evaluation steps can ingest this corpus to quantify true negatives, specificity, Matthews correlation, balanced accuracy, future threshold sweeps, and ranking-style metrics without perturbing refactoring decisions.
 
+### Offline candidate-universe evaluation (M5 extension)
+
+Legacy M4 shadow JSONL is still evaluated with the original pipeline and filenames (`shadow-evaluation-*.csv` / `.json`). Candidate-universe JSONL is evaluated **separately** when passed to [`rmt-shadow-eval.sh`](/rmt-shadow-eval.sh) via `--candidate-universe-input`. You may pass both `--input` and `--candidate-universe-input` into the same run; outputs land in the same `--output` directory without overwriting shadow artifacts:
+
+- `candidate-universe-integrity.csv`
+- `candidate-universe-metrics-overall.csv`
+- `candidate-universe-metrics-by-pattern.csv`
+- `candidate-universe-ranking-by-pattern.csv`
+- `candidate-universe-warnings.md`
+
+**Semantics (by design):** rows with `ai_label=null` are **not** placed in TP/FP/FN/TN; ranking uses only rows with non-null `ai_score`. Rates that need evaluated heuristic negatives (specificity, FPR, balanced accuracy, MCC) emit `NA` when `evaluated_negative_rows=0`. Threshold sweeping over `threshold` columns is **not** implemented here; [`threshold-sweep-readiness.jsonl`](../detection-and-refactoring/src/test/resources/ai/experimental/candidate-universe-eval/threshold-sweep-readiness.jsonl) exists only as a fixture for later work.
+
+Java entry point: `br.com.magnus.detectionandrefactoring.ai.experimental.evaluation.ShadowExperimentEvaluationCli` (same classpath as the legacy evaluator). Optional JUnit smoke: `-Drmt.shell.smoke=true` enables a test that invokes `main` with mixed legacy + universe fixtures.
+
 Typical stack startup:
 
 ```bash

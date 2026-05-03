@@ -8,18 +8,23 @@ MAIN_CLASS="br.com.magnus.detectionandrefactoring.ai.experimental.evaluation.Sha
 
 usage() {
   cat <<EOF
-Usage: ./rmt-shadow-eval.sh --input <path> [--input <path> ...] --output <dir> [options]
+Usage:
+  ./rmt-shadow-eval.sh --input <legacy-shadow-jsonl> [--input <path> ...] [--candidate-universe-input <path> ...] --output <dir> [options]
 
-Offline M5 evaluator only.
+Or universe-only:
+  ./rmt-shadow-eval.sh --candidate-universe-input <candidate-universe.jsonl> [--candidate-universe-input <path> ...] --output <dir> [options]
+
+Offline M5 evaluator (legacy shadow + optional candidate-universe extension).
 This script does not start the Python AI service or the RMT stack.
 
 Options:
-  --input <path>     JSONL file or directory containing JSONL files. Repeatable.
-  --output <dir>     Output directory for the generated reports.
-  --m2-repo <dir>    Maven local repository path. Default: /tmp/rmt-m2
-  --maven-home <dir> Maven user home path. Default: /tmp/rmt-maven-home
-  --skip-build       Reuse existing compiled classes and classpath file.
-  --help             Show this help message.
+  --input <path>                      Legacy shadow JSONL file or directory (*.jsonl). Repeatable.
+  --candidate-universe-input <path>   candidate-universe-v1 JSONL file or directory (*.jsonl). Repeatable.
+  --output <dir>                      Output directory for the generated reports (shared by both modes).
+  --m2-repo <dir>                     Maven local repository path. Default: /tmp/rmt-m2
+  --maven-home <dir>                  Maven user home path. Default: /tmp/rmt-maven-home
+  --skip-build                        Reuse existing compiled classes and classpath file.
+  --help                              Show this help message.
 
 Examples:
   ./rmt-shadow-eval.sh \\
@@ -27,9 +32,13 @@ Examples:
     --output /tmp/rmt-shadow-eval
 
   ./rmt-shadow-eval.sh \\
-    --input /data/shadow-exports \\
-    --input /data/extra/run-02.jsonl \\
-    --output ./target/shadow-eval
+    --candidate-universe-input detection-and-refactoring/target/sample-universe.jsonl \\
+    --output /tmp/rmt-cu-eval
+
+  ./rmt-shadow-eval.sh \\
+    --input legacy-shadow.jsonl \\
+    --candidate-universe-input candidate-universe.jsonl \\
+    --output ./target/m5-eval
 EOF
 }
 
@@ -88,11 +97,11 @@ preflight_checks() {
   local record_count
   record_count="$(count_input_records "${input_paths[@]}")"
   if [[ "$record_count" -le 0 ]]; then
-    echo "Input JSONL has zero records across provided --input paths."
+    echo "Input JSONL sources have zero aggregate lines across legacy + candidate-universe paths."
     exit 1
   fi
 
-  echo "==> Preflight OK: mvn available, writable repo/home/output, input_records=$record_count"
+  echo "==> Preflight OK: mvn available, writable repo/home/output, jsonl_lines=$record_count"
 }
 
 build_if_needed() {
@@ -121,6 +130,7 @@ main() {
   local m2_repo="/tmp/rmt-m2"
   local maven_home="/tmp/rmt-maven-home"
   local -a inputs=()
+  local -a universe_inputs=()
   local -a cli_args=()
 
   while [[ $# -gt 0 ]]; do
@@ -132,6 +142,15 @@ main() {
         fi
         inputs+=("$2")
         cli_args+=("--input" "$2")
+        shift 2
+        ;;
+      --candidate-universe-input)
+        if [[ $# -lt 2 ]]; then
+          echo "Missing value for --candidate-universe-input"
+          exit 1
+        fi
+        universe_inputs+=("$2")
+        cli_args+=("--candidate-universe-input" "$2")
         shift 2
         ;;
       --output)
@@ -176,8 +195,8 @@ main() {
     esac
   done
 
-  if [[ ${#inputs[@]} -eq 0 ]]; then
-    echo "At least one --input path is required."
+  if [[ ${#inputs[@]} -eq 0 && ${#universe_inputs[@]} -eq 0 ]]; then
+    echo "Provide at least one --input (legacy shadow JSONL) or --candidate-universe-input path."
     echo ""
     usage
     exit 1
@@ -190,7 +209,8 @@ main() {
     exit 1
   fi
 
-  preflight_checks "$output_dir" "$m2_repo" "$maven_home" "${inputs[@]}"
+  local -a merged_inputs=("${inputs[@]}" "${universe_inputs[@]}")
+  preflight_checks "$output_dir" "$m2_repo" "$maven_home" "${merged_inputs[@]}"
   build_if_needed "$skip_build" "$m2_repo" "$maven_home"
 
   if [[ ! -f "$CLASSPATH_FILE" ]]; then
@@ -201,7 +221,7 @@ main() {
   local runtime_classpath
   runtime_classpath="$MODULE_DIR/target/classes:$(cat "$CLASSPATH_FILE")"
 
-  echo "==> Running shadow evaluation..."
+  echo "==> Running M5 offline evaluation (legacy=${#inputs[@]}, candidate-universe=${#universe_inputs[@]})..."
   java -Dmaven.repo.local="$m2_repo" -Duser.home="$maven_home" \
     -cp "$runtime_classpath" "$MAIN_CLASS" "${cli_args[@]}"
 
