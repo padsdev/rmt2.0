@@ -11,6 +11,10 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 LEGACY_CU_SYMLINK = REPO_ROOT / "detection-and-refactoring" / "target" / "rmt-ai-candidate-universe.jsonl"
 
 
+def _staging_file(repo: Path, run_id: str) -> Path:
+    return repo / "detection-and-refactoring" / "target" / "runs" / run_id / "candidate-universe.jsonl"
+
+
 class RunBenchmarkCandidateUniverseTest(unittest.TestCase):
     def test_help_documents_candidate_universe_flag(self) -> None:
         result = subprocess.run(
@@ -34,9 +38,10 @@ class RunBenchmarkCandidateUniverseTest(unittest.TestCase):
 
         run_id = f"pytest-cu-{os.getpid()}"
         run_dir = REPO_ROOT / "experiments" / "runs" / run_id
-        cu = run_dir / "candidate-universe" / "candidate-universe.jsonl"
+        official = run_dir / "candidate-universe" / "candidate-universe.jsonl"
+        staging = _staging_file(REPO_ROOT, run_id)
         self.addCleanup(lambda: shutil.rmtree(run_dir, ignore_errors=True))
-        self.addCleanup(lambda: RunBenchmarkCandidateUniverseTest._unlink_symlink_if_points_to(cu))
+        self.addCleanup(lambda: shutil.rmtree(staging.parent, ignore_errors=True))
 
         subprocess.run(
             [
@@ -56,23 +61,26 @@ class RunBenchmarkCandidateUniverseTest(unittest.TestCase):
             timeout=120,
         )
 
-        self.assertTrue(cu.is_file())
+        self.assertTrue(official.is_file())
+        self.assertTrue(staging.is_file())
         cfg = (run_dir / "config.env").read_text(encoding="utf-8")
         self.assertIn("CANDIDATE_UNIVERSE=true", cfg)
         self.assertIn("CANDIDATE_UNIVERSE_EXPORT_PATH=", cfg)
-        self.assertIn("CANDIDATE_UNIVERSE_CONTAINER_PATH=/shadow-target/rmt-ai-candidate-universe.jsonl", cfg)
-        self.assertIn("candidate-universe.jsonl", cfg)
+        self.assertIn(f"/experiments/runs/{run_id}/candidate-universe/candidate-universe.jsonl", cfg)
+        self.assertIn("CANDIDATE_UNIVERSE_HOST_STAGING_PATH=", cfg)
+        self.assertIn(f"detection-and-refactoring/target/runs/{run_id}/candidate-universe.jsonl", cfg)
+        self.assertIn(
+            f"CANDIDATE_UNIVERSE_CONTAINER_PATH=/shadow-target/runs/{run_id}/candidate-universe.jsonl",
+            cfg,
+        )
         self.assertIn("RMT_EXPERIMENT_RUN_ID=", cfg)
-
-        self.assertTrue(LEGACY_CU_SYMLINK.is_symlink(), "runner must create detection-and-refactoring/target/rmt-ai-candidate-universe.jsonl symlink")
-        self.assertTrue(
-            cu.resolve().samefile(LEGACY_CU_SYMLINK.resolve()),
-            "symlink must resolve to the run-scoped candidate-universe.jsonl",
+        self.assertFalse(
+            LEGACY_CU_SYMLINK.exists(),
+            "legacy target/rmt-ai-candidate-universe.jsonl must not be used for candidate-universe routing",
         )
 
-    def test_two_candidate_universe_runs_replace_symlink_target(self) -> None:
+    def test_two_candidate_universe_runs_distinct_staging_paths(self) -> None:
         tmp = Path(tempfile.mkdtemp(prefix="pytest-cu-runs-"))
-        self.addCleanup(lambda: LEGACY_CU_SYMLINK.unlink(missing_ok=True))
         self.addCleanup(lambda: shutil.rmtree(tmp, ignore_errors=True))
 
         manifest = tmp / "one-project.csv"
@@ -84,11 +92,11 @@ class RunBenchmarkCandidateUniverseTest(unittest.TestCase):
 
         run_a = f"pytest-cu-a-{os.getpid()}"
         run_b = f"pytest-cu-b-{os.getpid()}"
+        for rid in (run_a, run_b):
+            self.addCleanup(lambda p=rid: shutil.rmtree(_staging_file(REPO_ROOT, p).parent, ignore_errors=True))
 
-        for rid, expected in (
-            (run_a, tmp / "runs" / run_a / "candidate-universe" / "candidate-universe.jsonl"),
-            (run_b, tmp / "runs" / run_b / "candidate-universe" / "candidate-universe.jsonl"),
-        ):
+        for rid in (run_a, run_b):
+            staging = _staging_file(REPO_ROOT, rid)
             subprocess.run(
                 [
                     "bash",
@@ -108,10 +116,17 @@ class RunBenchmarkCandidateUniverseTest(unittest.TestCase):
                 check=True,
                 timeout=120,
             )
-            self.assertTrue(LEGACY_CU_SYMLINK.is_symlink())
-            self.assertTrue(
-                expected.resolve().samefile(LEGACY_CU_SYMLINK.resolve()),
-                msg=f"after run {rid}, symlink must point at that run's file",
+            official = tmp / "runs" / rid / "candidate-universe" / "candidate-universe.jsonl"
+            self.assertTrue(staging.is_file(), msg=f"staging must exist for {rid}")
+            self.assertTrue(official.is_file(), msg=f"official placeholder must exist for {rid}")
+            cfg = (tmp / "runs" / rid / "config.env").read_text(encoding="utf-8")
+            self.assertIn(
+                f"CANDIDATE_UNIVERSE_CONTAINER_PATH=/shadow-target/runs/{rid}/candidate-universe.jsonl",
+                cfg,
+            )
+            self.assertFalse(
+                LEGACY_CU_SYMLINK.exists(),
+                msg=f"after run {rid}, legacy symlink path must not exist",
             )
 
     def test_dry_run_heuristic_only_without_flag_skips_candidate_universe_dir(self) -> None:
@@ -135,6 +150,7 @@ class RunBenchmarkCandidateUniverseTest(unittest.TestCase):
         )
 
         self.assertFalse((run_dir / "candidate-universe").exists())
+        self.assertFalse(_staging_file(REPO_ROOT, run_id).exists())
 
     def test_without_candidate_universe_flag_does_not_replace_existing_symlink(self) -> None:
         dummy = Path(tempfile.mkstemp(prefix="pytest-cu-dummy-", suffix=".jsonl")[1])
@@ -167,13 +183,3 @@ class RunBenchmarkCandidateUniverseTest(unittest.TestCase):
         self.assertEqual(dummy.resolve(), LEGACY_CU_SYMLINK.resolve())
 
         LEGACY_CU_SYMLINK.unlink(missing_ok=True)
-
-    @staticmethod
-    def _unlink_symlink_if_points_to(candidate_file: Path) -> None:
-        if not LEGACY_CU_SYMLINK.is_symlink() or not candidate_file.is_file():
-            return
-        try:
-            if LEGACY_CU_SYMLINK.resolve() == candidate_file.resolve():
-                LEGACY_CU_SYMLINK.unlink(missing_ok=True)
-        except OSError:
-            pass

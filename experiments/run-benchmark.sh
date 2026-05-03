@@ -37,6 +37,7 @@ SHADOW_EXPORT_LOCK_DIR=""
 LEGACY_SHARED_EXPORT_LINKED="false"
 CANDIDATE_UNIVERSE="false"
 CANDIDATE_UNIVERSE_EXPORT_PATH=""
+CANDIDATE_UNIVERSE_HOST_STAGING_PATH=""
 
 usage() {
   cat <<EOF
@@ -55,9 +56,11 @@ Options:
   --experiment-profile <value>   Benchmark profile: heuristic-only, shadow-stub, shadow-real-model,
                                  shadow-zeroshot, or shadow-finetuned.
                                  Default: shadow-stub
-  --candidate-universe           When set, creates experiments/runs/<RUN_ID>/candidate-universe/ and exports
-                                 RMT_AI_CANDIDATE_UNIVERSE_EXPORT_PATH to candidate-universe.jsonl (truncated
-                                 at run start). Also exports RMT_EXPERIMENT_RUN_ID=<RUN_ID> for JSONL metadata.
+  --candidate-universe           When set, creates experiments/runs/<RUN_ID>/candidate-universe/ plus a host
+                                 staging file under detection-and-refactoring/target/runs/<RUN_ID>/ (visible in
+                                 Docker as /shadow-target/runs/<RUN_ID>/candidate-universe.jsonl). Exports
+                                 RMT_AI_CANDIDATE_UNIVERSE_EXPORT_PATH for the detection container and
+                                 RMT_EXPERIMENT_RUN_ID=<RUN_ID>. Copies staging into the run artifact at the end.
                                  Works with heuristic-only (AI off) and shadow profiles; omit to keep legacy behaviour.
   --compare-with <run-id|path>   Existing benchmark run to compare against after this run completes.
   --skip-eval-build              Reuse existing M5 compiled classes when invoking rmt-shadow-eval.sh
@@ -297,37 +300,59 @@ prepare_shadow_export_path() {
 
 prepare_candidate_universe_export_path() {
   if [[ "$CANDIDATE_UNIVERSE" != "true" ]]; then
+    CANDIDATE_UNIVERSE_HOST_STAGING_PATH=""
     return 0
   fi
 
-  mkdir -p "$RUN_DIR/candidate-universe"
-  CANDIDATE_UNIVERSE_EXPORT_PATH="$(cd "$RUN_DIR/candidate-universe" && pwd)/candidate-universe.jsonl"
-  rm -f "$CANDIDATE_UNIVERSE_EXPORT_PATH"
-  : > "$CANDIDATE_UNIVERSE_EXPORT_PATH"
+  local target_mount_dir="$REPO_ROOT/detection-and-refactoring/target"
+  local runs_subdir="$target_mount_dir/runs/$RUN_ID"
 
-  export RMT_AI_CANDIDATE_UNIVERSE_EXPORT_PATH="$CANDIDATE_UNIVERSE_EXPORT_PATH"
+  mkdir -p "$RUN_DIR/candidate-universe"
+  mkdir -p "$runs_subdir"
+
+  CANDIDATE_UNIVERSE_EXPORT_PATH="$(cd "$RUN_DIR/candidate-universe" && pwd)/candidate-universe.jsonl"
+  CANDIDATE_UNIVERSE_HOST_STAGING_PATH="$(cd "$runs_subdir" && pwd)/candidate-universe.jsonl"
+
+  rm -f "$CANDIDATE_UNIVERSE_EXPORT_PATH" "$CANDIDATE_UNIVERSE_HOST_STAGING_PATH"
+  : > "$CANDIDATE_UNIVERSE_EXPORT_PATH"
+  : > "$CANDIDATE_UNIVERSE_HOST_STAGING_PATH"
+
+  # Obsolete symlink export pointed outside the Docker bind mount; remove it so nothing follows a broken link.
+  rm -f "$target_mount_dir/rmt-ai-candidate-universe.jsonl"
+
+  export RMT_AI_CANDIDATE_UNIVERSE_EXPORT_PATH="/shadow-target/runs/${RUN_ID}/candidate-universe.jsonl"
   export RMT_EXPERIMENT_RUN_ID="$RUN_ID"
 
-  log_line "Candidate universe export path: $CANDIDATE_UNIVERSE_EXPORT_PATH (RMT_EXPERIMENT_RUN_ID=$RUN_ID)"
+  log_line "Candidate universe official artifact: $CANDIDATE_UNIVERSE_EXPORT_PATH"
+  log_line "Candidate universe host staging (detection bind mount): $CANDIDATE_UNIVERSE_HOST_STAGING_PATH"
+  log_line "Candidate universe container path: $RMT_AI_CANDIDATE_UNIVERSE_EXPORT_PATH (RMT_EXPERIMENT_RUN_ID=$RUN_ID)"
+}
 
-  # Docker/localstack stacks mount detection-and-refactoring/target as /shadow-target and keep
-  # RMT_AI_CANDIDATE_UNIVERSE_EXPORT_PATH=/shadow-target/rmt-ai-candidate-universe.jsonl inside the container.
-  # Replace the host symlink atomically so the JVM writes into the current run artifact (no stale target mixing).
-  local target_mount_dir="$REPO_ROOT/detection-and-refactoring/target"
-  local legacy_candidate_link="$target_mount_dir/rmt-ai-candidate-universe.jsonl"
-  mkdir -p "$target_mount_dir"
-  rm -f "$legacy_candidate_link"
-
-  local rel_path
-  if ! rel_path="$(realpath --relative-to="$target_mount_dir" "$CANDIDATE_UNIVERSE_EXPORT_PATH" 2>/dev/null)"; then
-    fail "realpath --relative-to is required to link candidate universe into detection-and-refactoring/target (missing util?)"
-  fi
-  if [[ -z "$rel_path" || "$rel_path" == "." ]]; then
-    fail "Refusing empty relative path when linking candidate universe into $target_mount_dir"
+finalize_candidate_universe_artifact() {
+  if [[ "$CANDIDATE_UNIVERSE" != "true" ]]; then
+    return 0
   fi
 
-  ln -s "$rel_path" "$legacy_candidate_link"
-  log_line "Linked detection candidate-universe symlink: $legacy_candidate_link -> $rel_path (resolved host file: $CANDIDATE_UNIVERSE_EXPORT_PATH)"
+  local official="$RUN_DIR/candidate-universe/candidate-universe.jsonl"
+  local staging="$CANDIDATE_UNIVERSE_HOST_STAGING_PATH"
+
+  if [[ ! -f "$staging" ]]; then
+    log_line "WARN: Candidate universe staging file is missing ($staging); official artifact left as-is at $official"
+    return 0
+  fi
+
+  if [[ ! -s "$staging" ]]; then
+    log_line "WARN: Candidate universe staging file is empty (detection wrote no rows); official artifact left empty at $official"
+    : > "$official"
+    return 0
+  fi
+
+  if ! cp -f "$staging" "$official"; then
+    log_line "ERROR: Failed to copy candidate universe staging file from $staging to $official"
+    return 0
+  fi
+
+  log_line "Copied candidate universe staging file to official artifact: $official"
 }
 
 write_run_configuration() {
@@ -354,10 +379,11 @@ DRY_RUN=$DRY_RUN
 SKIP_EVAL_BUILD=$SKIP_EVAL_BUILD
 CANDIDATE_UNIVERSE=$CANDIDATE_UNIVERSE
 CANDIDATE_UNIVERSE_EXPORT_PATH=$CANDIDATE_UNIVERSE_EXPORT_PATH
+CANDIDATE_UNIVERSE_HOST_STAGING_PATH=$CANDIDATE_UNIVERSE_HOST_STAGING_PATH
 EOF
   if [[ "$CANDIDATE_UNIVERSE" == "true" ]]; then
     printf 'RMT_EXPERIMENT_RUN_ID=%s\n' "$RUN_ID" >> "$RUN_DIR/config.env"
-    printf 'CANDIDATE_UNIVERSE_CONTAINER_PATH=%s\n' "/shadow-target/rmt-ai-candidate-universe.jsonl" >> "$RUN_DIR/config.env"
+    printf 'CANDIDATE_UNIVERSE_CONTAINER_PATH=%s\n' "/shadow-target/runs/${RUN_ID}/candidate-universe.jsonl" >> "$RUN_DIR/config.env"
   fi
 }
 
@@ -1040,7 +1066,7 @@ generate_run_readme() {
 - Evaluator build mode: \`$( [[ "$SKIP_EVAL_BUILD" == "true" ]] && printf 'reuse compiled classes' || printf 'compile if needed' )\`
 - Comparison baseline: \`$( [[ -n "$COMPARE_RUN_DIR" ]] && printf '%s' "$COMPARE_RUN_DIR" || printf 'none' )\`
 - Repo HEAD: \`$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || echo unknown)\`
-$( [[ "$CANDIDATE_UNIVERSE" == "true" ]] && printf '%s\n' "- Candidate universe JSONL: \`candidate-universe/candidate-universe.jsonl\` (also \`RMT_AI_CANDIDATE_UNIVERSE_EXPORT_PATH\` / \`RMT_EXPERIMENT_RUN_ID\` in the shell running this script — restart or configure the detection service with the same paths if it does not inherit this environment)" )
+$( [[ "$CANDIDATE_UNIVERSE" == "true" ]] && printf '%s\n' "- Candidate universe: staging under \`detection-and-refactoring/target/runs/$RUN_ID/\` (container \`/shadow-target/runs/$RUN_ID/candidate-universe.jsonl\`), official copy \`candidate-universe/candidate-universe.jsonl\`; export \`RMT_AI_CANDIDATE_UNIVERSE_EXPORT_PATH\` / \`RMT_EXPERIMENT_RUN_ID\` for detection and recreate the container when those change." )
 
 ## Per-Project Results
 
@@ -1068,7 +1094,7 @@ EOF
 
     if [[ "$CANDIDATE_UNIVERSE" == "true" ]]; then
       cat <<EOF
-- Candidate universe JSONL (run-scoped): \`candidate-universe/candidate-universe.jsonl\`
+- Candidate universe JSONL (official): \`candidate-universe/candidate-universe.jsonl\` (copied from detection staging \`../../detection-and-refactoring/target/runs/$RUN_ID/candidate-universe.jsonl\` when non-empty)
 EOF
     fi
 
@@ -1215,7 +1241,7 @@ main() {
     log_line "Shadow export path initialized at $SHADOW_EXPORT_PATH"
   fi
   if [[ "$CANDIDATE_UNIVERSE" == "true" ]]; then
-    log_line "Candidate universe export enabled at $CANDIDATE_UNIVERSE_EXPORT_PATH"
+    log_line "Candidate universe enabled (official: $CANDIDATE_UNIVERSE_EXPORT_PATH; staging: $CANDIDATE_UNIVERSE_HOST_STAGING_PATH)"
   fi
 
   capture_health_snapshots
@@ -1239,6 +1265,7 @@ main() {
     log_line "Evaluator skipped because JSONL validation failed"
   fi
   generate_performance_comparison_reports
+  finalize_candidate_universe_artifact
   generate_run_readme
 
   if [[ "$OVERALL_EXIT_CODE" -ne 0 ]]; then
