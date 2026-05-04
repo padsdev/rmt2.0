@@ -37,7 +37,7 @@ services:
   intermediary:
     image: magnus/manager
     build:
-      context: .
+      context: ../../project-sync-bff
       dockerfile: Dockerfile
     environment:
       - AWS_ACCESS_KEY_ID=fakeAccessKeyId
@@ -70,7 +70,7 @@ services:
   detection:
     image: magnus/detection
     build:
-      context: .
+      context: ../../detection-and-refactoring
       dockerfile: Dockerfile
     environment:
       - AWS_ACCESS_KEY_ID=fakeAccessKeyId
@@ -80,6 +80,8 @@ services:
       - RMT_AI_ENABLED=true
       - RMT_AI_BASE_URL=http://rmt-ai:8000
       - RMT_AI_READ_TIMEOUT=120s
+      # JsonlShadowExperimentExporter is always registered when rmt.ai.enabled=true; path must exist for writes (append JSONL).
+      - RMT_AI_SHADOW_EXPORT_PATH=/tmp/rmt-ai-shadow-export.jsonl
     depends_on:
       - redis
       - localstack
@@ -88,7 +90,7 @@ services:
   metrics:
     image: magnus/metrics
     build:
-      context: .
+      context: ../../metrics-calculator
       dockerfile: Dockerfile
     environment:
       - AWS_ACCESS_KEY_ID=fakeAccessKeyId
