@@ -255,3 +255,11 @@ target/**
 .terraform
 metrics-agent/target
 metrics-agent/target/**
+
+time.md
+.cursor/
+.local-python/
+.pytest_cache/
+rmt2_cursor_project/
+experiments/
+docs/

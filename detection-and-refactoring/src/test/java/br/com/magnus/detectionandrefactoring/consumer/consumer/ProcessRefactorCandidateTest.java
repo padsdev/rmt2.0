@@ -19,6 +19,8 @@ import br.com.magnus.detectionandrefactoring.gateway.SendProject;
 import br.com.magnus.detectionandrefactoring.refactor.methods.DetectionMethodsManager;
 import br.com.magnus.detectionandrefactoring.repository.ProjectRepository;
 import br.com.magnus.detectionandrefactoring.repository.ProjectUpdater;
+import br.com.magnus.config.starter.projects.RmtAiRunMode;
+import io.awspring.cloud.s3.ObjectMetadata;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -70,6 +72,9 @@ class ProcessRefactorCandidateTest {
         lenient().when(projectHeuristicObservationsFactory.create(any())).thenReturn(
                 new br.com.magnus.detectionandrefactoring.ai.experimental.ProjectHeuristicObservations("id", List.of())
         );
+        lenient().when(projectHeuristicObservationsFactory.create(anyString(), any())).thenReturn(
+                new br.com.magnus.detectionandrefactoring.ai.experimental.ProjectHeuristicObservations("id", List.of())
+        );
         lenient().when(shadowExperimentRecordFactory.create(any(), any())).thenReturn(List.of());
         processRefactorCandidate = new ProcessRefactorCandidate(
                 detectionMethodsManagerList,
@@ -84,6 +89,26 @@ class ProcessRefactorCandidateTest {
                 shadowExperimentExporter,
                 candidateUniverseExportService
         );
+    }
+
+    @Test
+    @DisplayName("Should skip AI analysis when CLASSIC metadata mode is set")
+    void shouldSkipAiWhenClassicMetadataMode() {
+        var metadata = ObjectMetadata.builder()
+                .metadata(RmtAiRunMode.METADATA_KEY, RmtAiRunMode.CLASSIC.name())
+                .build();
+        var project = Project.builder()
+                .baseProject(BaseProject.builder()
+                        .id("id")
+                        .metadata(metadata)
+                        .build())
+                .build();
+        project.addStatus(ProjectStatus.NO_CANDIDATES);
+        when(projectsRepository.findById(anyString())).thenReturn(Optional.of(project.getBaseProject()));
+
+        assertDoesNotThrow(() -> processRefactorCandidate.process("id"));
+
+        verify(projectAiAnalyzer, never()).analyze(any());
     }
 
     @Test

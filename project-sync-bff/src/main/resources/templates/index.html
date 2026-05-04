@@ -33,6 +33,17 @@
     </div>
     <form class="row" id="form" hx-encoding='multipart/form-data' hx-swap="outerHTML" hx-target="#evaluate"
           hx-post='/upload' hx-trigger="change from:input">
+        <div class="col-12 form-group mb-3 text-start">
+            <span class="form-label d-block mb-2">Run mode</span>
+            <div class="btn-group flex-wrap" role="group" aria-label="AI run mode">
+                <input type="radio" class="btn-check" name="aiRunMode" id="mode-classic" value="CLASSIC" autocomplete="off" checked>
+                <label class="btn btn-outline-secondary" for="mode-classic" title="Heuristics only; no AI calls">Classic</label>
+                <input type="radio" class="btn-check" name="aiRunMode" id="mode-shadow" value="SHADOW" autocomplete="off">
+                <label class="btn btn-outline-secondary" for="mode-shadow" title="Run AI for diagnostics; keep all heuristic candidates">Shadow</label>
+                <input type="radio" class="btn-check" name="aiRunMode" id="mode-ai-filter" value="AI_ONLY_FILTER" autocomplete="off">
+                <label class="btn btn-outline-secondary" for="mode-ai-filter" title="Keep only candidates the AI marks as accepted for their pattern">AI-only (filter)</label>
+            </div>
+        </div>
         <div class="col-sm-4 form-group">
             <label class="p2" for="upload">Upload zip file to evaluate</label>
             <input class="form-control" id="upload" type='file' name='file' accept=".zip" hx-disabled-elt="this" required>

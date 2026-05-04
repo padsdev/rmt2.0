@@ -1,6 +1,7 @@
 package br.com.magnus.detectionandrefactoring.repository;
 
 import br.com.magnus.config.starter.file.compressor.FileCompressor;
+import br.com.magnus.config.starter.projects.BaseProject;
 import br.com.magnus.config.starter.projects.CandidateInformation;
 import br.com.magnus.config.starter.projects.Project;
 import br.com.magnus.config.starter.projects.ProjectStatus;
@@ -22,6 +23,10 @@ public class ProjectUpdater {
     }
 
     private void saveFiles(Project project) {
+        BaseProject base = project.getBaseProject();
+        if (base != null && base.getCandidatesInformation() != null) {
+            base.getCandidatesInformation().clear();
+        }
         if (project.getRefactorFiles() == null || project.getRefactorFiles().isEmpty()) {
             project.addStatus(ProjectStatus.NO_CANDIDATES);
             return;

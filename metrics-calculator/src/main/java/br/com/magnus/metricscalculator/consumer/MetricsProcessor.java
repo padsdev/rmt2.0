@@ -8,6 +8,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+/**
+ * Computes CK-based quality attributes for each surviving heuristic candidate; same pipeline for all detection run modes.
+ */
 @Slf4j
 @Component
 @RequiredArgsConstructor

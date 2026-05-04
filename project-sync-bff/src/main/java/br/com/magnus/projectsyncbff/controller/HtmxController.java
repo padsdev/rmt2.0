@@ -2,6 +2,7 @@ package br.com.magnus.projectsyncbff.controller;
 
 import br.com.magnus.config.starter.projects.BaseProject;
 import br.com.magnus.config.starter.projects.Project;
+import br.com.magnus.config.starter.projects.RmtAiRunMode;
 import br.com.magnus.projectsyncbff.refactor.RefactorProject;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
@@ -30,7 +31,9 @@ public class HtmxController {
 
     @SneakyThrows
     @PostMapping(path = "/upload")
-    public String registration(Map<String, Object> model, @NotNull @RequestParam("file") MultipartFile file) throws IOException {
+    public String registration(Map<String, Object> model,
+                               @NotNull @RequestParam("file") MultipartFile file,
+                               @RequestParam(name = "aiRunMode", defaultValue = "CLASSIC") String aiRunMode) throws IOException {
         var hash = MessageDigest.getInstance("SHA-256").digest(file.getBytes());
         // var id = new BigInteger(1, hash).toString(16);
         var id = UUID.randomUUID().toString();
@@ -47,7 +50,7 @@ public class HtmxController {
                 .zipContent(IoUtils.toByteArray(file.getInputStream()))
                 .build();
 
-        refactorProject.process(project);
+        refactorProject.process(project, RmtAiRunMode.tryParse(aiRunMode).orElse(RmtAiRunMode.CLASSIC));
 
         model.put("url", "/project/" + id);
         return "evaluation";

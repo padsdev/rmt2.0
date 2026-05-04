@@ -2,6 +2,7 @@ package br.com.magnus.projectsyncbff.refactor;
 
 
 import br.com.magnus.config.starter.projects.Project;
+import br.com.magnus.config.starter.projects.RmtAiRunMode;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Retryable;
 import org.springframework.web.server.ResponseStatusException;
@@ -9,7 +10,11 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.List;
 
 public interface RefactorProject {
-    void process(Project project);
+    default void process(Project project) {
+        process(project, RmtAiRunMode.CLASSIC);
+    }
+
+    void process(Project project, RmtAiRunMode aiRunMode);
 
     ProjectResults retrieve(String id);
 

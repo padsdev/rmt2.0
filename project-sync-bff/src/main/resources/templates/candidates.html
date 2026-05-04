@@ -28,14 +28,11 @@
                 </div>
             </td>
             <td><span th:text="${candidate.getDesignPattern()}"></span></td>
-            <td><span th:text="${candidate.getMetricValue('MAINTAINABILITY')}"></span></td>
-            <td><span th:text="${candidate.getMetricValue('REUSABILITY')}"></span></td>
-            <td><span th:text="${candidate.getMetricValue('RELIABILITY')}"></span></td>
+            <td><span th:text="${candidate.getMetricValueDisplay('MAINTAINABILITY')}"></span></td>
+            <td><span th:text="${candidate.getMetricValueDisplay('REUSABILITY')}"></span></td>
+            <td><span th:text="${candidate.getMetricValueDisplay('RELIABILITY')}"></span></td>
         </tr>
-    </table>
-    </td>
-    </tr>
-    </tbody>
+        </tbody>
     </table>
     <button class="m-3 h-50 align-self-end btn btn-primary" th:hx-post="${url}" hx-target="#file-link"
             hx-swap="outerHTML">Refactor

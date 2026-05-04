@@ -7,6 +7,7 @@ import br.com.magnus.config.starter.file.extractor.FileExtractor;
 import br.com.magnus.config.starter.projects.BaseProject;
 import br.com.magnus.config.starter.projects.Project;
 import br.com.magnus.config.starter.projects.ProjectStatus;
+import br.com.magnus.config.starter.projects.RmtAiRunMode;
 import br.com.magnus.config.starter.repository.S3ProjectRepository;
 import br.com.magnus.projectsyncbff.gateway.SendProject;
 import br.com.magnus.projectsyncbff.repository.ProjectRepository;
@@ -35,15 +36,17 @@ public class RefactorProjectImpl implements RefactorProject {
     private final FileExtractor fileExtractor;
 
     @Override
-    public void process(Project project) {
+    public void process(Project project, RmtAiRunMode aiRunMode) {
         var projectOpt = projectRepository.findById(project.getId());
         if (checkFroExistingProject(projectOpt)) {
             return;
         }
 
+        var mode = aiRunMode != null ? aiRunMode : RmtAiRunMode.CLASSIC;
         var metadata = ObjectMetadata.builder()
                 .contentType(project.getContentType())
                 .metadata("FileName", project.getName())
+                .metadata(RmtAiRunMode.METADATA_KEY, mode.name())
                 .build();
 
         project.setMetadata(metadata);
@@ -73,14 +76,23 @@ public class RefactorProjectImpl implements RefactorProject {
         if (!status.contains(ProjectStatus.FINISHED) && !status.contains(ProjectStatus.NO_CANDIDATES)) {
             throw new ResponseStatusException(HttpStatusCode.valueOf(404), "Please try uploading the project again. If it doesn't work, contact the support team.");
         }
-        var durationNano = project.getUpdatedAt() - project.getCreatedAt();
-        var duration = durationNano/1E9;
-        log.info("Elapsed time: Milliseconds: {}, Nanoseconds: {} ", duration, durationNano);
+        var createdAt = project.getCreatedAt();
+        var updatedAt = project.getUpdatedAt();
+        String durationFormatted;
+        if (createdAt != null && updatedAt != null) {
+            var durationNano = updatedAt - createdAt;
+            var durationSec = durationNano / 1E9;
+            log.info("Elapsed time: Milliseconds: {}, Nanoseconds: {} ", durationSec, durationNano);
+            durationFormatted = new DecimalFormat("#.#####").format(durationSec);
+        } else {
+            log.warn("Missing project timestamps id={} createdAt={} updatedAt={}", id, createdAt, updatedAt);
+            durationFormatted = "—";
+        }
         return ProjectResults.builder()
                 .name(project.getName())
                 .candidatesInformation(project.getCandidatesInformation())
                 .status(status.getLast())
-                .duration(new DecimalFormat("#.#####").format(duration))
+                .duration(durationFormatted)
                 .build();
     }
 

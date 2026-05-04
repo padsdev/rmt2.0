@@ -2,6 +2,7 @@ package br.com.magnus.projectsyncbff.controller;
 
 import br.com.magnus.config.starter.projects.BaseProject;
 import br.com.magnus.config.starter.projects.Project;
+import br.com.magnus.config.starter.projects.RmtAiRunMode;
 import br.com.magnus.projectsyncbff.refactor.ProjectResults;
 import br.com.magnus.projectsyncbff.refactor.RefactorProject;
 import jakarta.validation.Valid;
@@ -31,7 +32,8 @@ public class RestfulController implements Serializable {
 
     @SneakyThrows
     @PostMapping(path = "/upload")
-    public String registration(@NotNull @RequestParam("file") MultipartFile file) throws IOException {
+    public String registration(@NotNull @RequestParam("file") MultipartFile file,
+                               @RequestParam(name = "aiRunMode", required = false) String aiRunMode) throws IOException {
         var hash = MessageDigest.getInstance("SHA-256").digest(file.getBytes());
         var id = new BigInteger(1, hash).toString(16);
         log.info("Receiving project from front end original name: {},id: {}, size: {}", file.getOriginalFilename(), id, file.getSize());
@@ -47,7 +49,10 @@ public class RestfulController implements Serializable {
                 .zipContent(IoUtils.toByteArray(file.getInputStream()))
                 .build();
 
-        refactorProject.process(project);
+        refactorProject.process(
+                project,
+                RmtAiRunMode.tryParse(aiRunMode).orElse(RmtAiRunMode.SHADOW)
+        );
 
         return id;
     }

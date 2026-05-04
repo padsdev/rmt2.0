@@ -47,7 +47,7 @@ class CandidateUniverseExportServicePathTest {
 
         var ctx = new ProjectAiAnalysisContext();
         var heuristicFactory = Mockito.mock(ProjectHeuristicObservationsFactory.class);
-        Mockito.when(heuristicFactory.create(Mockito.any())).thenReturn(
+        Mockito.when(heuristicFactory.create(Mockito.anyString(), Mockito.anyList())).thenReturn(
                 new br.com.magnus.detectionandrefactoring.ai.experimental.ProjectHeuristicObservations("proj-bb", List.of())
         );
 
@@ -63,7 +63,7 @@ class CandidateUniverseExportServicePathTest {
 
         service.exportIfConfigured(project);
 
-        Mockito.verify(heuristicFactory, Mockito.times(1)).create(Mockito.any(Project.class));
+        Mockito.verify(heuristicFactory, Mockito.times(1)).create(Mockito.eq("proj-bb"), Mockito.anyList());
 
         assertTrue(Files.exists(target));
         var lines = Files.readAllLines(target);

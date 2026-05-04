@@ -1,5 +1,6 @@
 package br.com.magnus.detectionandrefactoring.ai.experimental.universe;
 
+import br.com.magnus.config.starter.members.RefactorFiles;
 import br.com.magnus.config.starter.projects.Project;
 import br.com.magnus.detectionandrefactoring.ai.configuration.RmtAiProperties;
 import br.com.magnus.detectionandrefactoring.ai.domain.ProjectAiAnalysis;
@@ -15,6 +16,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
 import java.util.List;
+import java.util.Optional;
 
 @Slf4j
 @Component
@@ -32,6 +34,11 @@ public class CandidateUniverseExportService {
     private final ObjectMapper objectMapper;
 
     public void exportIfConfigured(Project project) {
+        exportIfConfigured(project, Optional.ofNullable(project.getRefactorFiles()).orElseGet(List::of));
+    }
+
+    /** @param heuristicRefactorFiles heuristic candidates before AI-only filtering, if applicable */
+    public void exportIfConfigured(Project project, List<RefactorFiles> heuristicRefactorFiles) {
         var configuredPath = properties.getCandidateUniverseExportPath();
         if (configuredPath == null) {
             return;
@@ -40,7 +47,7 @@ public class CandidateUniverseExportService {
         try {
             var projectId = project.getId();
             var aiAnalysis = projectAiAnalysisContext.find(projectId).orElseGet(() -> ProjectAiAnalysis.empty(projectId));
-            var heuristics = projectHeuristicObservationsFactory.create(project);
+            var heuristics = projectHeuristicObservationsFactory.create(projectId, heuristicRefactorFiles);
             var rows = candidateUniverseRecordFactory.create(project, heuristics, aiAnalysis);
             writeJsonl(configuredPath, rows);
             log.info(

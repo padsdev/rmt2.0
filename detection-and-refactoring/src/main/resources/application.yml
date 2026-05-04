@@ -30,11 +30,11 @@ queue:
 
 rmt:
   ai:
-    enabled: false
+    enabled: ${RMT_AI_ENABLED:false}
     base-url: ${RMT_AI_BASE_URL:http://127.0.0.1:8000}
     analyze-path: ${RMT_AI_ANALYZE_PATH:/api/v1/analyze}
     connect-timeout: ${RMT_AI_CONNECT_TIMEOUT:500ms}
-    read-timeout: ${RMT_AI_READ_TIMEOUT:2s}
+    read-timeout: ${RMT_AI_READ_TIMEOUT:120s}
 
 server:
   port: 8081

@@ -1,5 +1,6 @@
 package br.com.magnus.projectsyncbff.controller;
 
+import br.com.magnus.config.starter.projects.RmtAiRunMode;
 import br.com.magnus.projectsyncbff.refactor.RefactorProject;
 import lombok.SneakyThrows;
 import org.junit.jupiter.api.Assertions;
@@ -18,6 +19,7 @@ import software.amazon.awssdk.utils.IoUtils;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.ArgumentMatchers.assertArg;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -46,12 +48,13 @@ class RestfulControllerTest {
         ).andExpect(status().isOk());
 
         Mockito.verify(refactorProject, Mockito.atLeastOnce()).process(assertArg(it ->
-                        Assertions.assertAll("Verify project construction",
-                                () -> assertThat(it.getSize(), is(multipart.getSize())),
-                                () -> assertThat(it.getName(), is(multipart.getOriginalFilename())),
-                                () -> assertThat(it.getContentType(), is(multipart.getContentType())),
-                                () -> assertThat(it.getZipContent(), is(IoUtils.toByteArray(multipart.getInputStream()))))
-                )
+                                Assertions.assertAll("Verify project construction",
+                                        () -> assertThat(it.getSize(), is(multipart.getSize())),
+                                        () -> assertThat(it.getName(), is(multipart.getOriginalFilename())),
+                                        () -> assertThat(it.getContentType(), is(multipart.getContentType())),
+                                        () -> assertThat(it.getZipContent(), is(IoUtils.toByteArray(multipart.getInputStream()))))
+                        ),
+                eq(RmtAiRunMode.SHADOW)
         );
     }
 

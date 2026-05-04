@@ -50,6 +50,23 @@ services:
       - redis
       - localstack
 
+  # GraphCodeBERT inference (HTTP contract matches detection HttpRmtAiClient).
+  # Run modes Classic | Shadow | AI_ONLY_FILTER are per-project metadata on BaseProject; one detection container handles all.
+  # Classic skips AI calls in Java; Shadow and AI_ONLY_FILTER use this service when RMT_AI_ENABLED=true.
+  rmt-ai:
+    image: magnus/rmt-ai
+    build:
+      context: ../../rmt-ai-module/rmt-ai-service
+      dockerfile: Dockerfile
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      - RMT_AI_BACKEND=${RMT_AI_BACKEND:-transformers}
+      - RMT_AI_MODEL_NAME=${RMT_AI_MODEL_NAME:-microsoft/graphcodebert-base}
+      - RMT_AI_DECISION_THRESHOLD=${RMT_AI_DECISION_THRESHOLD:-0.35}
+    depends_on:
+      - redis
+
   detection:
     image: magnus/detection
     build:
@@ -60,9 +77,13 @@ services:
       - AWS_SECRET_ACCESS_KEY=fakeSecretAccessKey
       - REDIS_HOST=redis
       - LOCAL_STACK_HOST=http://localstack:4566
+      - RMT_AI_ENABLED=true
+      - RMT_AI_BASE_URL=http://rmt-ai:8000
+      - RMT_AI_READ_TIMEOUT=120s
     depends_on:
       - redis
       - localstack
+      - rmt-ai
 
   metrics:
     image: magnus/metrics

@@ -5,6 +5,7 @@ import br.com.magnus.config.starter.file.extractor.FileExtractor;
 import br.com.magnus.config.starter.projects.BaseProject;
 import br.com.magnus.config.starter.projects.Project;
 import br.com.magnus.config.starter.projects.ProjectStatus;
+import br.com.magnus.config.starter.projects.RmtAiRunMode;
 import br.com.magnus.config.starter.repository.S3ProjectRepository;
 import br.com.magnus.projectsyncbff.gateway.SendProject;
 import br.com.magnus.projectsyncbff.repository.ProjectRepository;
@@ -20,7 +21,9 @@ import java.util.Optional;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.*;
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -58,7 +61,10 @@ class RefactorProjectImplTest {
         this.refactorProject.process(project);
 
         verify(this.s3ProjectRepository, atLeastOnce()).upload(eq(bucket.getProjectBucket()), eq(project.getId()), any(InputStream.class), assertArg(it ->
-                assertThat(it.getContentType(), is(project.getContentType()))
+                assertAll(
+                        () -> assertThat(it.getContentType(), is(project.getContentType())),
+                        () -> assertEquals(RmtAiRunMode.CLASSIC.name(), it.getMetadata().get(RmtAiRunMode.METADATA_KEY))
+                )
         ));
         verify(this.projectRepository).save(project.getBaseProject());
         verify(this.sendProject).send(project.getId());
@@ -80,7 +86,10 @@ class RefactorProjectImplTest {
 
         verify(this.projectRepository, (atLeastOnce())).deleteById(project.getId());
         verify(this.s3ProjectRepository, atLeastOnce()).upload(eq(bucket.getProjectBucket()), eq(project.getId()), any(InputStream.class), assertArg(it ->
-                assertThat(it.getContentType(), is(project.getContentType()))
+                assertAll(
+                        () -> assertThat(it.getContentType(), is(project.getContentType())),
+                        () -> assertEquals(RmtAiRunMode.CLASSIC.name(), it.getMetadata().get(RmtAiRunMode.METADATA_KEY))
+                )
         ));
         verify(this.projectRepository).save(project.getBaseProject());
         verify(this.sendProject).send(project.getId());

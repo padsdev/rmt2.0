@@ -1,5 +1,6 @@
 package br.com.magnus.detectionandrefactoring.consumer;
 
+import br.com.magnus.detectionandrefactoring.ai.domain.AiCandidateApproval;
 import br.com.magnus.detectionandrefactoring.ai.domain.ProjectAiAnalysis;
 import br.com.magnus.detectionandrefactoring.ai.experimental.ProjectHeuristicObservationsFactory;
 import br.com.magnus.detectionandrefactoring.ai.experimental.ShadowExperimentExporter;
@@ -9,8 +10,10 @@ import br.com.magnus.detectionandrefactoring.ai.experimental.universe.CandidateU
 import br.com.magnus.detectionandrefactoring.ai.service.ProjectAiAnalysisContext;
 import br.com.magnus.detectionandrefactoring.ai.service.ProjectAiAnalyzer;
 import br.com.magnus.config.starter.file.extractor.FileExtractor;
+import br.com.magnus.config.starter.members.RefactorFiles;
 import br.com.magnus.config.starter.projects.Project;
 import br.com.magnus.config.starter.projects.ProjectStatus;
+import br.com.magnus.config.starter.projects.RmtAiRunMode;
 import br.com.magnus.detectionandrefactoring.gateway.SendProject;
 import br.com.magnus.detectionandrefactoring.refactor.methods.DetectionMethodsManager;
 import br.com.magnus.detectionandrefactoring.repository.ProjectRepository;
@@ -20,8 +23,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.util.Assert;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Component
@@ -44,20 +52,62 @@ public class ProcessRefactorCandidate {
         Assert.notNull(id, "Id cannot be null");
         log.info("Message received id: {}", id);
         var project = retrieveProject(id);
+        var runMode = resolveRunMode(project);
+        log.info("Project id={} rmt_ai_run_mode={}", id, runMode);
+        List<RefactorFiles> heuristicSnapshotForExports = List.of();
         try {
             project.setOriginalContent(fileExtractor.extract(project.getBaseProject()));
             detectionMethodsManager.forEach(method -> method.refactor(project));
-            var analysis = analyzeWithAi(project);
+            heuristicSnapshotForExports = snapshotRefactorFiles(project);
+            var analysis = runMode == RmtAiRunMode.CLASSIC
+                    ? ProjectAiAnalysis.empty(project.getId())
+                    : analyzeWithAi(project);
             projectAiAnalysisContext.store(analysis);
+            if (runMode == RmtAiRunMode.AI_ONLY_FILTER) {
+                applyAiOnlyFilter(project, analysis);
+            }
             projectUpdater.saveProject(project);
             send(project);
         } catch (Exception exception) {
             finalizeWithTerminalFailure(project, exception);
         } finally {
-            exportShadowExperiment(project);
-            exportCandidateUniverseIfConfigured(project);
+            exportShadowExperiment(project, heuristicSnapshotForExports);
+            exportCandidateUniverseIfConfigured(project, heuristicSnapshotForExports);
             projectAiAnalysisContext.clear(project.getId());
         }
+    }
+
+    private RmtAiRunMode resolveRunMode(Project project) {
+        var base = project.getBaseProject();
+        if (base == null) {
+            return RmtAiRunMode.SHADOW;
+        }
+        var metadata = base.getMetadata();
+        if (metadata == null || metadata.getMetadata() == null) {
+            return RmtAiRunMode.SHADOW;
+        }
+        var raw = metadata.getMetadata().get(RmtAiRunMode.METADATA_KEY);
+        return RmtAiRunMode.tryParse(raw).orElse(RmtAiRunMode.SHADOW);
+    }
+
+    private ArrayList<RefactorFiles> snapshotRefactorFiles(Project project) {
+        return new ArrayList<>(Optional.ofNullable(project.getRefactorFiles()).orElseGet(List::of));
+    }
+
+    private void applyAiOnlyFilter(Project project, ProjectAiAnalysis analysis) {
+        var refactorFiles = project.getRefactorFiles();
+        if (refactorFiles == null || refactorFiles.isEmpty()) {
+            return;
+        }
+        var byCandidateId = analysis.candidateAnalyses().stream()
+                .collect(Collectors.toMap(ProjectAiAnalysis.CandidateAnalysis::candidateId, Function.identity(), (a, b) -> a));
+        var kept = refactorFiles.stream()
+                .filter(rf -> rf.candidates().stream().allMatch(c -> {
+                    var ca = byCandidateId.get(c.getId());
+                    return ca != null && AiCandidateApproval.accepts(c, ca.result());
+                }))
+                .collect(Collectors.toCollection(ArrayList::new));
+        project.setRefactorFiles(kept);
     }
 
     private ProjectAiAnalysis analyzeWithAi(Project project) {
@@ -77,6 +127,10 @@ public class ProcessRefactorCandidate {
         }
     }
 
+    /**
+     * Publishes the project id to the measure-pattern queue; {@link br.com.magnus.metricscalculator.consumer.MetricsProcessor}
+     * is the sole CK / MAINTAINABILITY–REUSABILITY–RELIABILITY path for every run mode that still has candidates (Classic, Shadow, AI-only filter).
+     */
     private void send(Project project) {
         if (project.getStatus().contains(ProjectStatus.NO_CANDIDATES)) {
             return;
@@ -84,14 +138,14 @@ public class ProcessRefactorCandidate {
         sendProject.send(project.getId());
     }
 
-    private void exportCandidateUniverseIfConfigured(Project project) {
-        candidateUniverseExportService.exportIfConfigured(project);
+    private void exportCandidateUniverseIfConfigured(Project project, List<RefactorFiles> heuristicSnapshotForExports) {
+        candidateUniverseExportService.exportIfConfigured(project, heuristicSnapshotForExports);
     }
 
-    private void exportShadowExperiment(Project project) {
+    private void exportShadowExperiment(Project project, List<RefactorFiles> heuristicSnapshotForExports) {
         try {
             projectAiAnalysisContext.find(project.getId()).ifPresent(aiAnalysis -> {
-                var heuristicObservations = projectHeuristicObservationsFactory.create(project);
+                var heuristicObservations = projectHeuristicObservationsFactory.create(project.getId(), heuristicSnapshotForExports);
                 var records = shadowExperimentRecordFactory.create(aiAnalysis, heuristicObservations);
                 var experimentProfiles = records.stream()
                         .map(ShadowExperimentRecord::experimentProfile)

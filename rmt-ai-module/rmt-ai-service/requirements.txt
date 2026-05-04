@@ -1,0 +1,8 @@
+fastapi>=0.110
+uvicorn[standard]>=0.27
+pydantic>=2
+pydantic-settings>=2
+# torch: installed in Dockerfile (CPU index) before this file
+transformers>=4.39.0
+sentencepiece>=0.2.0
+safetensors>=0.4.0

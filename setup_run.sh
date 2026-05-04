@@ -1,23 +1,20 @@
 #!/usr/bin/env bash
 
-mvn install -f config-starter/pom.xml
-mvn install -f detection-and-refactoring/pom.xml
-mvn install -f project-sync-bff/pom.xml
-mvn install -f metrics-calculator/pom.xml
+set -euo pipefail
 
-cd detection-and-refactoring
-docker build -t magnus/detection .
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-cd  ..
+echo "[setup_run] Building Java modules (clean + skip tests)..."
+mvn -DskipTests clean install -f "$ROOT_DIR/config-starter/pom.xml"
+mvn -DskipTests clean install -f "$ROOT_DIR/detection-and-refactoring/pom.xml"
+mvn -DskipTests clean install -f "$ROOT_DIR/project-sync-bff/pom.xml"
+mvn -DskipTests clean install -f "$ROOT_DIR/metrics-calculator/pom.xml"
 
-cd project-sync-bff
-docker build -t magnus/manager .
+echo "[setup_run] Building Docker images..."
+docker build -t magnus/rmt-ai "$ROOT_DIR/rmt-ai-module/rmt-ai-service"
+docker build -t magnus/detection "$ROOT_DIR/detection-and-refactoring"
+docker build -t magnus/manager "$ROOT_DIR/project-sync-bff"
+docker build -t magnus/metrics "$ROOT_DIR/metrics-calculator"
 
-cd ..
-
-cd metrics-calculator
-docker build -t magnus/metrics .
-
-cd ..
-
-./run_local_full.sh
+echo "[setup_run] Starting local stack..."
+"$ROOT_DIR/run_local_full.sh"

@@ -11,6 +11,7 @@ import lombok.ToString;
 import java.math.BigDecimal;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 @Getter
@@ -31,5 +32,19 @@ public final class CandidateInformation {
                 .map(QualityAttributeResult::changePercentage)
                 .findFirst()
                 .orElseThrow();
+    }
+
+    /** Safe for UI when metrics are still computing or a row is missing an attribute. */
+    public String getMetricValueDisplay(String metric) {
+        if (metrics == null || metrics.isEmpty()) {
+            return "—";
+        }
+        return metrics.stream()
+                .filter(m -> Objects.equals(m.qualityAttributeName(), metric))
+                .map(QualityAttributeResult::changePercentage)
+                .filter(Objects::nonNull)
+                .findFirst()
+                .map(v -> v.stripTrailingZeros().toPlainString())
+                .orElse("—");
     }
 }

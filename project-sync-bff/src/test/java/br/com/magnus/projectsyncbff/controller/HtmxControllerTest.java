@@ -1,5 +1,6 @@
 package br.com.magnus.projectsyncbff.controller;
 
+import br.com.magnus.config.starter.projects.RmtAiRunMode;
 import br.com.magnus.projectsyncbff.refactor.RefactorProject;
 import lombok.SneakyThrows;
 import org.junit.jupiter.api.Assertions;
@@ -47,12 +48,13 @@ class HtmxControllerTest {
         ).andExpect(status().isOk());
 
         Mockito.verify(refactorProject, Mockito.atLeastOnce()).process(assertArg(it ->
-                        Assertions.assertAll("Verify project construction",
-                                () -> assertThat(it.getSize(), is(multipart.getSize())),
-                                () -> assertThat(it.getName(), is(multipart.getOriginalFilename())),
-                                () -> assertThat(it.getContentType(), is(multipart.getContentType())),
-                                () -> assertThat(it.getZipContent(), is(IoUtils.toByteArray(multipart.getInputStream()))))
-                )
+                                Assertions.assertAll("Verify project construction",
+                                        () -> assertThat(it.getSize(), is(multipart.getSize())),
+                                        () -> assertThat(it.getName(), is(multipart.getOriginalFilename())),
+                                        () -> assertThat(it.getContentType(), is(multipart.getContentType())),
+                                        () -> assertThat(it.getZipContent(), is(IoUtils.toByteArray(multipart.getInputStream()))))
+                        ),
+                Mockito.eq(RmtAiRunMode.CLASSIC)
         );
     }
 

@@ -1,5 +1,6 @@
 package br.com.magnus.detectionandrefactoring.ai.experimental;
 
+import br.com.magnus.config.starter.members.RefactorFiles;
 import br.com.magnus.config.starter.members.candidates.RefactoringCandidate;
 import br.com.magnus.config.starter.projects.Project;
 import br.com.magnus.detectionandrefactoring.ai.service.CandidateEntityExtractor;
@@ -16,14 +17,18 @@ public class ProjectHeuristicObservationsFactory {
     private final List<CandidateEntityExtractor> candidateEntityExtractors;
 
     public ProjectHeuristicObservations create(Project project) {
-        var observations = Optional.ofNullable(project.getRefactorFiles()).orElse(List.of()).stream()
-                .flatMap(refactorFiles -> refactorFiles.candidates().stream())
+        return create(project.getId(), project.getRefactorFiles());
+    }
+
+    public ProjectHeuristicObservations create(String projectId, List<RefactorFiles> refactorFiles) {
+        var observations = Optional.ofNullable(refactorFiles).orElse(List.of()).stream()
+                .flatMap(rf -> rf.candidates().stream())
                 .map(this::toObservation)
                 .flatMap(Optional::stream)
                 .sorted((left, right) -> left.candidateId().compareTo(right.candidateId()))
                 .toList();
 
-        return new ProjectHeuristicObservations(project.getId(), observations);
+        return new ProjectHeuristicObservations(projectId, observations);
     }
 
     private Optional<HeuristicCandidateObservation> toObservation(RefactoringCandidate candidate) {
