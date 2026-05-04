@@ -1,0 +1,2 @@
+{"project_id":"project-gamma","candidate_id":"candidate-8","entity_id":"entity-8","trace_id":"not-a-uuid","observation_status":"VALID_OBSERVATION","heuristic_pattern":"STRATEGY","predicted_labels":["STRATEGY"],"confidence":0.71}
+{"project_id":"project-gamma","candidate_id":"candidate-9","entity_id":"entity-9","trace_id":"99999999-9999-9999-9999-999999999999","observation_status":"VALID_OBSERVATION","heuristic_pattern":"FACTORY_METHOD","confidence":0.44}
